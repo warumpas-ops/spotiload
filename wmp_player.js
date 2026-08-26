@@ -258,6 +258,17 @@ function wmpExplodeDestroy() {
 }
 
 function setupWmpEvents() {
+    const mainOrb = document.getElementById('mainOrb');
+    if (mainOrb) {
+        mainOrb.addEventListener('click', (e) => {
+            const widget = document.getElementById('wmp-widget');
+            if (widget && widget.classList.contains('minimized')) {
+                e.stopPropagation();
+                widget.classList.remove('minimized');
+            }
+        });
+    }
+
     wmpAudio.addEventListener('timeupdate', () => {
         if (!wmpAudio.duration) return;
         const pct = (wmpAudio.currentTime / wmpAudio.duration) * 100;
