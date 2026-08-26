@@ -72,6 +72,24 @@ def custom_static(filename):
     return "Static file not found", 404
 
 
+@app.route("/<path:filename>")
+def serve_root_files(filename):
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    target = os.path.basename(filename)
+    candidates = [
+        os.path.join(base_dir, filename),
+        os.path.join(base_dir, target),
+        os.path.join(base_dir, "static", filename),
+    ]
+    for path in candidates:
+        if os.path.exists(path) and os.path.isfile(path):
+            return send_file(path)
+    for root, dirs, files in os.walk(base_dir):
+        if target in files:
+            return send_file(os.path.join(root, target))
+    return "File Not Found", 404
+
+
 @app.route("/whimsy")
 def whimsy_ui():
     return render_template("whimsy.html")
