@@ -1,5 +1,6 @@
 """
 downloader.py — High-speed parallel download engine with automatic retries, MusicBrainz Picard-style multi-source cover art resolver, and Pillow JPEG normalization
+Handles: Spotify scraping, parallel YouTube downloads (yt-dlp), multi-source artwork resolution (Spotify + Deezer + iTunes + MusicBrainz/CAA), Pillow JPEG conversion, and ID3v2.3 MP3 tagging.
 """
 
 import sys
@@ -76,7 +77,7 @@ def extract_playlist_id(url: str) -> str:
         match = re.search(pattern, url)
         if match:
             return match.group(1)
-    raise ValueError("Invalid Spotify playlist URL.")
+    raise ValueError("Invalid Spotify playlist URL. Make sure it looks like: https://open.spotify.com/playlist/...")
 
 
 def _get_anonymous_token() -> str:
@@ -168,7 +169,7 @@ def _parse_api_response(raw: dict) -> dict:
         })
 
     playlist_images = raw.get("images", [])
-    cover_url = playlist_images[0]["url"] if images else None
+    cover_url = playlist_images[0]["url"] if playlist_images else None
 
     return {
         "name": sanitize_text(raw.get("name", "Playlist")),
@@ -252,3 +253,244 @@ def fetch_playlist(playlist_url: str) -> dict:
         raise RuntimeError("Could not fetch playlist data.")
 
     return result
+
+
+def get_song_specific_cover(track: dict, yt_thumbnail_url: str = None, default_cover_url: str = "") -> str:
+    """Multi-source artwork resolver."""
+    track_cover = track.get("cover_url")
+    if track_cover and "spotify.com" in track_cover:
+        return track_cover
+
+    artist = track.get("artist", "")
+    title = track.get("title", "")
+    clean_t = clean_query_title(title)
+
+    # 1. Deezer API
+    if clean_t and artist:
+        try:
+            resp = requests.get(
+                "https://api.deezer.com/search",
+                params={"q": f'artist:"{artist}" track:"{clean_t}"'},
+                headers=HEADERS,
+                timeout=3,
+            )
+            if resp.status_code == 200:
+                data = resp.json().get("data", [])
+                if data:
+                    item = data[0]
+                    album = item.get("album", {})
+                    if album.get("cover_xl"):
+                        return album["cover_xl"]
+        except Exception:
+            pass
+
+    # 2. iTunes API
+    if clean_t and artist:
+        try:
+            resp = requests.get(
+                "https://itunes.apple.com/search",
+                params={"term": f"{clean_t} {artist}".strip(), "entity": "song", "limit": 3},
+                headers=HEADERS,
+                timeout=3,
+            )
+            if resp.status_code == 200:
+                results = resp.json().get("results", [])
+                if results:
+                    for item in results:
+                        artwork = item.get("artworkUrl100")
+                        if artwork:
+                            return artwork.replace("100x100bb", "1000x1000bb")
+        except Exception:
+            pass
+
+    if yt_thumbnail_url:
+        return yt_thumbnail_url
+
+    return track_cover or default_cover_url or ""
+
+
+def search_and_download(track: dict, output_dir: str) -> tuple:
+    """Search YouTube for a track, download as MP3, and return (mp3_path, yt_thumbnail_url)."""
+    search_query = f"{track['title']} {track['artist']} audio"
+    safe_filename = re.sub(r'[<>:"/\\|?*]', "_", f"{track['artist']} - {track['title']}")
+    safe_filename = safe_filename[:200]
+    output_path = os.path.join(output_dir, safe_filename)
+
+    ydl_opts = {
+        "format": "bestaudio/best",
+        "outtmpl": output_path + ".%(ext)s",
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "320",
+            }
+        ],
+        "quiet": True,
+        "no_warnings": True,
+        "default_search": "ytsearch1",
+        "noplaylist": True,
+        "socket_timeout": 20,
+        "retries": 10,
+        "fragment_retries": 10,
+        "file_access_retries": 5,
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["mweb", "ios", "android"],
+            }
+        },
+        "http_headers": HEADERS,
+    }
+
+    yt_thumbnail = None
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(search_query, download=True)
+        if info:
+            if "entries" in info and info["entries"]:
+                entry = info["entries"][0]
+                yt_thumbnail = entry.get("thumbnail")
+            else:
+                yt_thumbnail = info.get("thumbnail")
+
+    mp3_path = output_path + ".mp3"
+    if not os.path.exists(mp3_path):
+        for f in os.listdir(output_dir):
+            if f.startswith(safe_filename) and f.endswith(".mp3"):
+                mp3_path = os.path.join(output_dir, f)
+                break
+
+    if not os.path.exists(mp3_path):
+        raise FileNotFoundError(f"Download failed for: {track['title']}")
+
+    return mp3_path, yt_thumbnail
+
+
+def tag_mp3(filepath: str, track: dict, cover_url: str = None) -> None:
+    """Embed ID3v2.3 metadata (encoding=1 UTF-16) and Pillow-normalized JPEG cover art into an MP3 file."""
+    try:
+        try:
+            tags = ID3(filepath)
+        except ID3NoHeaderError:
+            tags = ID3()
+
+        tags.add(TIT2(encoding=1, text=sanitize_text(track.get("title", ""))))
+        tags.add(TPE1(encoding=1, text=sanitize_text(track.get("artist", ""))))
+        if track.get("album"):
+            tags.add(TALB(encoding=1, text=sanitize_text(track.get("album", ""))))
+
+        if track.get("track_number"):
+            tags.add(TRCK(encoding=1, text=str(track["track_number"])))
+
+        release_date = str(track.get("release_date", "")).strip()
+        if release_date:
+            tags.add(TDRC(encoding=1, text=release_date))
+            year = release_date.split("-")[0]
+            if year.isdigit():
+                tags.add(TYER(encoding=1, text=year))
+
+        if track.get("genre"):
+            tags.add(TCON(encoding=1, text=str(track["genre"])))
+
+        if cover_url:
+            try:
+                resp = requests.get(cover_url, headers=HEADERS, timeout=12)
+                if resp.status_code == 200 and resp.content:
+                    jpeg_bytes = process_cover_image(resp.content)
+                    if jpeg_bytes:
+                        tags.add(
+                            APIC(
+                                encoding=0,
+                                mime="image/jpeg",
+                                type=3,
+                                desc="",
+                                data=jpeg_bytes,
+                            )
+                        )
+            except Exception as e:
+                print(f"Note embedding cover for '{track.get('title')}': {e}")
+
+        tags.save(filepath, v2_version=3)
+    except Exception as e:
+        print(f"Error tagging {filepath}: {e}")
+
+
+def _process_single_track(item: tuple, download_dir: str, default_cover: str, progress_callback) -> str:
+    """Helper worker function for parallel thread execution with automatic retry."""
+    idx, total, track = item
+    status = {
+        "current": idx + 1,
+        "total": total,
+        "track": track["title"],
+        "artist": track["artist"],
+        "cover_url": track.get("cover_url", ""),
+        "status": "downloading",
+    }
+
+    if progress_callback:
+        progress_callback(status)
+
+    last_error = None
+    for attempt in range(3):
+        try:
+            mp3_path, yt_thumb = search_and_download(track, download_dir)
+            specific_cover = get_song_specific_cover(track, yt_thumbnail_url=yt_thumb, default_cover_url=default_cover)
+            tag_mp3(mp3_path, track, cover_url=specific_cover)
+
+            status["status"] = "done"
+            status["cover_url"] = specific_cover
+            if progress_callback:
+                progress_callback(status)
+            return mp3_path
+        except Exception as e:
+            last_error = e
+            if attempt < 2:
+                time.sleep(1)
+
+    status["status"] = "error"
+    status["error"] = str(last_error)
+    if progress_callback:
+        progress_callback(status)
+    raise last_error
+
+
+def download_playlist(playlist_url: str, output_base_dir: str, progress_callback=None) -> tuple:
+    """Download an entire Spotify playlist as tagged MP3s in parallel and package into a ZIP file."""
+    playlist_data = fetch_playlist(playlist_url)
+    tracks = playlist_data["tracks"]
+    playlist_name = playlist_data["name"]
+    default_cover = playlist_data.get("cover_url", "")
+
+    clean_name = re.sub(r'[<>:"/\\|?*]', "_", playlist_name).strip()
+    session_id = str(uuid.uuid4())[:8]
+    work_dir = os.path.join(output_base_dir, f"{clean_name}_{session_id}")
+    os.makedirs(work_dir, exist_ok=True)
+
+    items = [(i, len(tracks), t) for i, t in enumerate(tracks)]
+    downloaded_files = []
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = {
+            executor.submit(_process_single_track, item, work_dir, default_cover, progress_callback): item
+            for item in items
+        }
+        for future in as_completed(futures):
+            try:
+                mp3_path = future.result()
+                downloaded_files.append(mp3_path)
+            except Exception as e:
+                print(f"Skipping failed track: {e}")
+
+    if not downloaded_files:
+        shutil.rmtree(work_dir, ignore_errors=True)
+        raise RuntimeError("No tracks were successfully downloaded.")
+
+    zip_filename = f"{clean_name}.zip"
+    zip_path = os.path.join(output_base_dir, f"{clean_name}_{session_id}.zip")
+
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for fpath in downloaded_files:
+            arcname = os.path.basename(fpath)
+            zf.write(fpath, arcname)
+
+    shutil.rmtree(work_dir, ignore_errors=True)
+    return zip_path, zip_filename, len(downloaded_files)
