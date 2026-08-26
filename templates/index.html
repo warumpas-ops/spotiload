@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotiload — Spotify Playlist Downloader</title>
+    <meta name="description" content="Download your Spotify playlists as high-quality MP3 files with album art and metadata.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/wmp_player.css">
+</head>
+<body>
+    <!-- Animated background blobs -->
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <main>
+        <!-- Hero / Input Section -->
+        <section id="hero-section" class="hero">
+            <div class="hero-badge">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M8 15s1.5-2 4-2 4 2 4 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M7 11.5s2-2.5 5-2.5 5 2.5 5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M6 8s2.5-3 6-3 6 3 6 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <span>Spotiload</span>
+            </div>
+            <div class="hero-title-container">
+                <img src="/static/images/real_cd.png" alt="Real Metallic CD" class="pixel-cd-disc">
+                <h1 class="hero-title">
+                    Download Your<br>
+                    <span class="gradient-text">Spotify Playlists</span>
+                </h1>
+            </div>
+            <p class="hero-subtitle">
+                Paste a playlist link. Get MP3 files with full metadata, album art, and everything — packaged in a zip.
+            </p>
+
+            <div class="input-container" id="input-container">
+                <div class="input-glow"></div>
+                <div class="input-wrapper">
+                    <svg class="input-icon" width="22" height="22" viewBox="0 0 24 24" fill="none">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <input
+                        type="text"
+                        id="playlist-url"
+                        placeholder="https://open.spotify.com/playlist/..."
+                        spellcheck="false"
+                        autocomplete="off"
+                    >
+                    <button id="fetch-btn" onclick="fetchPlaylist()">
+                        <span class="btn-text">Fetch</span>
+                        <span class="btn-loader"></span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="error-message" class="error-message"></div>
+        </section>
+
+        <!-- Playlist Preview Section -->
+        <section id="playlist-section" class="playlist-section hidden">
+            <div class="playlist-header">
+                <div class="playlist-cover-wrapper">
+                    <img id="playlist-cover" src="" alt="Playlist Cover" class="playlist-cover">
+                </div>
+                <div class="playlist-info">
+                    <span class="playlist-label">PLAYLIST</span>
+                    <h2 id="playlist-name" class="playlist-name"></h2>
+                    <p id="playlist-meta" class="playlist-meta"></p>
+                    <button id="download-btn" class="download-btn" onclick="startDownload()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            <polyline points="7 10 12 15 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <span>Download All</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="track-list" id="track-list">
+                <!-- Tracks injected by JS -->
+            </div>
+        </section>
+
+        <!-- Download Progress Section -->
+        <section id="progress-section" class="progress-section hidden">
+            <div class="progress-card">
+                <div class="progress-header">
+                    <h3>Downloading...</h3>
+                    <span id="progress-count" class="progress-count">0 / 0</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div id="progress-bar" class="progress-bar"></div>
+                </div>
+                <div id="progress-current" class="progress-current">
+                    <div class="progress-current-cover-wrapper">
+                        <img id="progress-cover" src="" alt="" class="progress-current-cover">
+                    </div>
+                    <div class="progress-current-info">
+                        <span id="progress-track" class="progress-track-name"></span>
+                        <span id="progress-artist" class="progress-track-artist"></span>
+                    </div>
+                    <div id="progress-status-icon" class="progress-status-icon">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+                <div id="progress-log" class="progress-log"></div>
+            </div>
+        </section>
+
+        <!-- Download Complete Section -->
+        <section id="complete-section" class="complete-section hidden">
+            <div class="complete-card">
+                <div class="complete-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M8 12l3 3 5-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h3 class="complete-title">All Done!</h3>
+                <p id="complete-summary" class="complete-summary"></p>
+                <button id="save-zip-btn" class="download-btn save-btn" onclick="downloadZip()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <polyline points="7 10 12 15 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <span>Save ZIP File</span>
+                </button>
+                <button class="reset-btn" onclick="resetApp()">Download Another Playlist</button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Aero Bubble Music Player System -->
+    <div class="aero-bubble-system floating" id="wmp-widget">
+        <!-- Floating Glass Marquee Card Above Main Orb (NEXT SONG INDICATOR) -->
+        <div class="aero-next-song-card" id="nextCard">
+            <span class="next-label">NEXT SONG:</span>
+            <span id="nextSongTitle" class="next-title">Horizon Drift — Late Static</span>
+        </div>
+
+        <!-- Main Spherical Glass Bubble Orb -->
+        <div class="aero-main-orb" id="mainOrb">
+            <!-- Header Bar with Prominent Minimize (–) & Close (✕) Window Buttons -->
+            <div class="aero-orb-header">
+                <span>AERO ORB</span>
+                <div class="aero-orb-win-ctrls">
+                    <button class="aero-orb-win-btn" onclick="event.stopPropagation(); wmpMinimize();" title="Minimize / Absorb">–</button>
+                    <button class="aero-orb-win-btn btn-close" onclick="event.stopPropagation(); wmpExplodeDestroy();" title="Explode & Close">✕</button>
+                </div>
+            </div>
+
+            <!-- Center Spinning CD & Metadata -->
+            <div class="aero-orb-center">
+                <img src="/static/images/real_cd.png" alt="Album CD" class="aero-orb-cd" id="wmp-thumb">
+                <div class="aero-orb-title" id="trackTitle">Select a Song</div>
+                <div class="aero-orb-artist" id="trackArtist">Bubble Player</div>
+                <div class="aero-orb-eq" id="orbEq">
+                    <i></i><i></i><i></i><i></i>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="aero-orb-progress">
+                <div class="aero-orb-time-row">
+                    <span id="orbTimeCurr">0:00</span>
+                    <span id="orbTimeTotal">0:00</span>
+                </div>
+                <div class="aero-orb-progress-bar">
+                    <div class="aero-orb-progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+
+            <!-- Volume Control -->
+            <div class="aero-orb-volume" id="volBars" title="Volume">
+                <i style="height:3px" data-lvl="1" onclick="wmpSetVolLevel(1)"></i>
+                <i style="height:5px" data-lvl="2" onclick="wmpSetVolLevel(2)"></i>
+                <i style="height:7px" data-lvl="3" onclick="wmpSetVolLevel(3)"></i>
+                <i style="height:9px" data-lvl="4" onclick="wmpSetVolLevel(4)"></i>
+                <i style="height:11px" data-lvl="5" onclick="wmpSetVolLevel(5)"></i>
+            </div>
+
+            <!-- Drawer Menu inside Glass Orb -->
+            <div class="aero-orb-drawer" id="orbDrawer">
+                <div class="aero-orb-header">
+                    <span>PLAYLIST</span>
+                    <button class="aero-orb-win-btn btn-close" onclick="document.getElementById('orbDrawer').classList.remove('show')">✕</button>
+                </div>
+                <div id="orbDrawerList"></div>
+            </div>
+        </div>
+
+        <!-- 6 Satellite Spherical Glass Button Orbs Placed on the LEFT SIDE of Main Orb -->
+        <!-- 1. Play / Pause -->
+        <div class="aero-satellite-orb" id="satPlay" onclick="wmpTogglePlay()" title="Play / Pause">
+            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" id="satPlayIcon"/></svg>
+        </div>
+
+        <!-- 2. Stop -->
+        <div class="aero-satellite-orb" id="satStop" onclick="wmpStop()" title="Stop">
+            <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>
+        </div>
+
+        <!-- 3. Previous -->
+        <div class="aero-satellite-orb" id="satPrev" onclick="wmpPlayPrev()" title="Previous Track">
+            <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+        </div>
+
+        <!-- 4. Next -->
+        <div class="aero-satellite-orb" id="satNext" onclick="wmpPlayNext()" title="Next Track">
+            <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </div>
+
+        <!-- 5. Random Shuffle -->
+        <div class="aero-satellite-orb" id="satShuf" onclick="wmpToggleShuffle()" title="Random Shuffle">
+            <svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.45 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+        </div>
+
+        <!-- 6. Track List Menu -->
+        <div class="aero-satellite-orb" id="satMenu" onclick="wmpToggleMenu()" title="Track List Queue">
+            <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>Built with Flask, yt-dlp &amp; the Spotify API</p>
+    </footer>
+
+    <script src="/static/js/bubbles.js"></script>
+    <script src="/static/js/wmp_player.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
