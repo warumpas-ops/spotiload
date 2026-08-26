@@ -1,0 +1,641 @@
+/* ============================================
+   Aero Bubble Music Player System — Mobile Responsive Edition
+   Features:
+   - Floating Glass Marquee Card above Main Orb: NEXT SONG: [Title] — [Artist]
+   - Same Liquid Absorption & Explosion Behavior as Satellite Orbs
+   - Audio Playback Engine for Trending & Spotify Songs
+   - Responsive Media Queries for Mobile Devices (<600px)
+   ============================================ */
+
+:root {
+    --bubble-glass-bg: radial-gradient(circle at 35% 30%, rgba(0, 242, 254, 0.5) 0%, rgba(6, 30, 60, 0.88) 75%, rgba(2, 12, 28, 0.96) 100%);
+    --bubble-border: rgba(255, 255, 255, 0.85);
+    --bubble-cyan: #00F2FE;
+    --bubble-teal: #00FFCC;
+    --bubble-glow: rgba(0, 242, 254, 0.55);
+}
+
+.aero-bubble-system {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 440px;
+    height: 420px;
+    z-index: 9999;
+    user-select: none;
+    pointer-events: none;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform-origin: bottom right;
+}
+
+/* Floating Ambient Motion */
+.aero-bubble-system.floating {
+    animation: cornerBubbleFloat 6s ease-in-out infinite alternate;
+}
+
+@keyframes cornerBubbleFloat {
+    0% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-12px) rotate(1deg); }
+    100% { transform: translateY(8px) rotate(-1deg); }
+}
+
+/* FLOATING GLASS MARQUEE CARD ABOVE MAIN ORB (NEXT SONG INDICATOR) */
+.aero-next-song-card {
+    position: absolute;
+    bottom: 300px;
+    right: 20px;
+    width: 280px;
+    height: 38px;
+    border-radius: 19px;
+    background: rgba(6, 28, 54, 0.82);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1.8px solid var(--bubble-border);
+    box-shadow: 
+        inset 0 2px 4px rgba(255, 255, 255, 0.8),
+        0 8px 24px rgba(0, 40, 100, 0.55),
+        0 0 20px var(--bubble-glow);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 8px;
+    pointer-events: auto;
+    z-index: 28;
+    transition: all 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+    overflow: hidden;
+    animation: nextCardFloat 5s ease-in-out infinite alternate;
+}
+
+@keyframes nextCardFloat {
+    0% { transform: translateY(0px); }
+    100% { transform: translateY(-6px); }
+}
+
+.aero-next-song-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 8%;
+    right: 8%;
+    height: 45%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.0) 100%);
+    border-radius: 19px 19px 50px 50px;
+    pointer-events: none;
+}
+
+.next-label {
+    font-size: 0.65rem;
+    font-weight: 900;
+    color: var(--bubble-teal);
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    text-shadow: 0 0 8px var(--bubble-teal);
+}
+
+.next-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #FFFFFF;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* MAIN SPHERICAL GLASS BUBBLE ORB */
+.aero-main-orb {
+    position: absolute;
+    bottom: 40px;
+    right: 40px;
+    width: 250px;
+    height: 250px;
+    border-radius: 50%;
+    background: var(--bubble-glass-bg);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 2px solid var(--bubble-border);
+    box-shadow: 
+        inset 0 6px 16px rgba(255, 255, 255, 0.85),
+        inset 0 -8px 20px rgba(0, 0, 0, 0.9),
+        0 16px 48px rgba(0, 40, 100, 0.6),
+        0 0 36px var(--bubble-glow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    pointer-events: auto;
+    z-index: 20;
+    transition: all 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+    overflow: hidden;
+    animation: mainOrbFloat 6s ease-in-out infinite alternate;
+}
+
+@keyframes mainOrbFloat {
+    0% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-10px) rotate(1deg); }
+    100% { transform: translateY(8px) rotate(-1deg); }
+}
+
+/* Specular Glass Highlight Arc */
+.aero-main-orb::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 48%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.05) 100%);
+    border-radius: 140px 140px 0 0;
+    pointer-events: none;
+    z-index: 30;
+}
+
+/* Minimized Floating State (NEXT SONG Card + Satellites Absorbed into Corner Bubble) */
+.aero-bubble-system.minimized .aero-main-orb {
+    width: 90px;
+    height: 90px;
+    bottom: 20px;
+    right: 20px;
+    cursor: pointer;
+    box-shadow: 0 0 40px var(--bubble-cyan), inset 0 4px 10px #FFFFFF;
+}
+
+.aero-bubble-system.minimized .aero-main-orb * {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+.aero-bubble-system.minimized .aero-main-orb::after {
+    content: '🎵';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.8rem;
+    opacity: 1;
+    filter: drop-shadow(0 0 10px #00FFCC);
+}
+
+.aero-bubble-system.minimized .aero-next-song-card {
+    bottom: 65px !important;
+    right: 65px !important;
+    transform: scale(0) !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    animation: none !important;
+}
+
+/* SATELLITE BUTTON BUBBLE ORBS BASE */
+.aero-satellite-orb {
+    position: absolute;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, rgba(0, 255, 204, 0.7) 0%, rgba(0, 136, 255, 0.9) 60%, rgba(2, 20, 50, 0.98) 100%);
+    border: 2px solid #FFFFFF;
+    box-shadow: 
+        inset 0 3px 6px rgba(255, 255, 255, 0.95),
+        0 8px 20px rgba(0, 40, 100, 0.55),
+        0 0 18px var(--bubble-glow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    pointer-events: auto;
+    z-index: 25;
+    transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55), opacity 0.4s ease, box-shadow 0.2s ease;
+    touch-action: manipulation;
+}
+
+.aero-satellite-orb:hover {
+    transform: scale(1.18) !important;
+    box-shadow: 0 0 24px var(--bubble-teal), inset 0 3px 8px #FFFFFF;
+}
+
+.aero-satellite-orb:active {
+    transform: scale(0.9) !important;
+}
+
+.aero-satellite-orb.active {
+    background: radial-gradient(circle at 35% 30%, #00FFCC 0%, #0088FF 100%);
+    box-shadow: 0 0 24px var(--bubble-teal);
+}
+
+.aero-satellite-orb svg {
+    width: 20px;
+    height: 20px;
+    fill: #FFFFFF;
+    filter: drop-shadow(0 2px 4px rgba(0, 20, 60, 0.8));
+}
+
+/* INDEPENDENT SEPARATE FLOATING ANIMATIONS FOR EACH SATELLITE BUBBLE */
+#satPlay { 
+    bottom: 250px; right: 285px; 
+    animation: satFloat1 4.5s ease-in-out infinite alternate;
+}
+#satStop { 
+    bottom: 190px; right: 315px; 
+    animation: satFloat2 5.2s ease-in-out infinite alternate;
+}
+#satPrev { 
+    bottom: 125px; right: 315px; 
+    animation: satFloat3 4.8s ease-in-out infinite alternate;
+}
+#satNext { 
+    bottom: 60px;  right: 285px; 
+    animation: satFloat4 5.6s ease-in-out infinite alternate;
+}
+#satShuf { 
+    bottom: 5px;   right: 235px; 
+    animation: satFloat5 4.3s ease-in-out infinite alternate;
+}
+#satMenu { 
+    bottom: -30px; right: 165px; 
+    animation: satFloat6 5.0s ease-in-out infinite alternate;
+}
+
+@keyframes satFloat1 {
+    0% { transform: translateY(0px) translateX(0px); }
+    100% { transform: translateY(-8px) translateX(-4px); }
+}
+
+@keyframes satFloat2 {
+    0% { transform: translateY(0px) translateX(0px); }
+    100% { transform: translateY(7px) translateX(-6px); }
+}
+
+@keyframes satFloat3 {
+    0% { transform: translateY(0px) translateX(0px); }
+    100% { transform: translateY(-9px) translateX(-5px); }
+}
+
+@keyframes satFloat4 {
+    0% { transform: translateY(0px) translateX(0px); }
+    100% { transform: translateY(8px) translateX(-4px); }
+}
+
+@keyframes satFloat5 {
+    0% { transform: translateY(0px) translateX(0px); }
+    100% { transform: translateY(-6px) translateX(5px); }
+}
+
+@keyframes satFloat6 {
+    0% { transform: translateY(0px) translateX(0px); }
+    100% { transform: translateY(7px) translateX(4px); }
+}
+
+/* Absorbed State: Small Orbs Suction into Center of Main Orb */
+.aero-bubble-system.minimized .aero-satellite-orb {
+    bottom: 65px !important;
+    right: 65px !important;
+    transform: scale(0) !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    animation: none !important;
+}
+
+/* HIGHLY PROMINENT HEADER BAR & WINDOW CONTROL BUTTONS */
+.aero-orb-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    color: var(--bubble-teal);
+    text-shadow: 0 0 10px rgba(0, 255, 204, 0.6);
+    z-index: 35;
+    padding: 0 4px;
+}
+
+.aero-orb-win-ctrls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* PROMINENT HIGH-CONTRAST MINIMIZE (–) & CLOSE (✕) BUTTONS */
+.aero-orb-win-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, rgba(0, 242, 254, 0.8), rgba(0, 100, 200, 0.9));
+    border: 1.5px solid #FFFFFF;
+    color: #FFFFFF;
+    font-size: 0.85rem;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 
+        inset 0 2px 4px rgba(255, 255, 255, 0.9),
+        0 0 12px var(--bubble-cyan);
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    touch-action: manipulation;
+}
+
+.aero-orb-win-btn:hover {
+    background: radial-gradient(circle at 35% 35%, #00FFCC, #0088FF);
+    box-shadow: 0 0 18px var(--bubble-teal), inset 0 2px 5px #FFFFFF;
+    color: #041426;
+    transform: scale(1.18);
+}
+
+.aero-orb-win-btn.btn-close {
+    background: radial-gradient(circle at 35% 35%, #FF5577, #CC0033);
+    box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.9), 0 0 12px rgba(255, 50, 80, 0.8);
+}
+
+.aero-orb-win-btn.btn-close:hover {
+    background: radial-gradient(circle at 35% 35%, #FF2255, #990022);
+    box-shadow: 0 0 18px #FF2255, inset 0 2px 5px #FFFFFF;
+    color: #FFFFFF;
+    transform: scale(1.18);
+}
+
+/* Center Disc & Metadata */
+.aero-orb-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin-top: 2px;
+    z-index: 35;
+}
+
+.aero-orb-cd {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #FFFFFF;
+    box-shadow: 0 4px 16px var(--bubble-cyan);
+    animation: spinOrbCD 10s linear infinite paused;
+}
+
+.aero-orb-cd.playing {
+    animation-play-state: running;
+}
+
+@keyframes spinOrbCD {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.aero-orb-title {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: #FFFFFF;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 90%;
+    margin-top: 4px;
+    text-shadow: 0 0 8px var(--bubble-cyan);
+}
+
+.aero-orb-artist {
+    font-size: 0.7rem;
+    color: #9FC4E6;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 90%;
+}
+
+/* Equalizer Bars */
+.aero-orb-eq {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 12px;
+    margin: 4px 0;
+    z-index: 35;
+}
+
+.aero-orb-eq i {
+    width: 3px;
+    background: linear-gradient(180deg, var(--bubble-cyan), var(--bubble-teal));
+    border-radius: 1.5px;
+    height: 20%;
+    transition: height 0.15s;
+}
+
+.aero-orb-cd.playing ~ .aero-orb-eq i,
+.aero-orb-eq.playing i {
+    animation: bounceOrbEQ 0.6s ease-in-out infinite alternate;
+}
+
+.aero-orb-eq i:nth-child(1) { animation-delay: 0.1s; }
+.aero-orb-eq i:nth-child(2) { animation-delay: 0.3s; }
+.aero-orb-eq i:nth-child(3) { animation-delay: 0.2s; }
+.aero-orb-eq i:nth-child(4) { animation-delay: 0.4s; }
+
+@keyframes bounceOrbEQ {
+    0% { height: 20%; }
+    100% { height: 100%; }
+}
+
+/* Progress Section */
+.aero-orb-progress {
+    width: 85%;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    z-index: 35;
+}
+
+.aero-orb-time-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.6rem;
+    color: #9FC4E6;
+}
+
+.aero-orb-progress-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.aero-orb-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--bubble-cyan), var(--bubble-teal));
+    box-shadow: 0 0 10px var(--bubble-cyan);
+    transition: width 0.2s linear;
+}
+
+/* Volume Bar */
+.aero-orb-volume {
+    display: flex;
+    gap: 2.5px;
+    align-items: flex-end;
+    cursor: pointer;
+    z-index: 35;
+    margin-bottom: 2px;
+}
+
+.aero-orb-volume i {
+    width: 3px;
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 1px;
+}
+
+.aero-orb-volume i.on {
+    background: var(--bubble-cyan);
+    box-shadow: 0 0 6px var(--bubble-cyan);
+}
+
+/* Drawer Menu inside Main Glass Orb */
+.aero-orb-drawer {
+    position: absolute;
+    inset: 0;
+    background: rgba(4, 20, 38, 0.97);
+    border-radius: 50%;
+    border: 2px solid var(--bubble-teal);
+    padding: 32px 18px;
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 60;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(8px);
+    overflow-y: auto;
+}
+
+.aero-orb-drawer.show {
+    display: flex;
+}
+
+.aero-orb-drawer div {
+    font-size: 0.65rem;
+    color: #CFE8FF;
+    padding: 4px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.aero-orb-drawer div:hover {
+    background: #0D2D4E;
+    color: var(--bubble-teal);
+}
+
+/* SEQUENTIAL EXPLOSION ANIMATION ON CLOSE (X) */
+.exploding-main {
+    animation: mainOrbPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.27) forwards !important;
+}
+
+@keyframes mainOrbPop {
+    0% { opacity: 1; }
+    50% { box-shadow: 0 0 80px #00FFCC; opacity: 0.9; }
+    100% { opacity: 0; filter: blur(12px); }
+}
+
+.exploding-sat {
+    animation: satellitePop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.27) forwards !important;
+}
+
+@keyframes satellitePop {
+    0% { opacity: 1; }
+    50% { box-shadow: 0 0 40px #00FFFF; opacity: 0.8; }
+    100% { opacity: 0; filter: blur(8px); }
+}
+
+/* ============================================
+   MOBILE RESPONSIVE RULES (<600px MOBILE PHONES)
+   ============================================ */
+@media (max-width: 600px) {
+    .aero-bubble-system {
+        bottom: 12px;
+        right: 12px;
+        width: 330px;
+        height: 330px;
+        transform: scale(0.85);
+        transform-origin: bottom right;
+    }
+
+    .aero-main-orb {
+        width: 200px;
+        height: 200px;
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 14px;
+    }
+
+    .aero-orb-cd {
+        width: 48px;
+        height: 48px;
+    }
+
+    .aero-orb-title {
+        font-size: 0.75rem;
+    }
+
+    .aero-orb-artist {
+        font-size: 0.62rem;
+    }
+
+    .aero-next-song-card {
+        bottom: 235px;
+        right: 10px;
+        width: 220px;
+        height: 32px;
+        padding: 0 10px;
+    }
+
+    .next-label {
+        font-size: 0.58rem;
+    }
+
+    .next-title {
+        font-size: 0.64rem;
+    }
+
+    .aero-satellite-orb {
+        width: 42px;
+        height: 42px;
+    }
+
+    .aero-satellite-orb svg {
+        width: 17px;
+        height: 17px;
+    }
+
+    /* Mobile Orbital Positioning around 200px Main Orb */
+    #satPlay { bottom: 200px; right: 220px; }
+    #satStop { bottom: 150px; right: 245px; }
+    #satPrev { bottom: 100px; right: 245px; }
+    #satNext { bottom: 50px;  right: 220px; }
+    #satShuf { bottom: 5px;   right: 180px; }
+    #satMenu { bottom: -20px; right: 125px; }
+
+    /* Mobile Minimized State */
+    .aero-bubble-system.minimized .aero-main-orb {
+        width: 76px;
+        height: 76px;
+        bottom: 12px;
+        right: 12px;
+    }
+
+    .aero-bubble-system.minimized .aero-satellite-orb {
+        bottom: 50px !important;
+        right: 50px !important;
+    }
+
+    .aero-bubble-system.minimized .aero-next-song-card {
+        bottom: 50px !important;
+        right: 50px !important;
+    }
+}
