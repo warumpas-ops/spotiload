@@ -1,14 +1,25 @@
-/**
- * wmp_player.js — Controller for Aero Bubble Player System with Floating Next Song Card & Audio Stream Engine
- */
+/* Frutiger Aero Windows Media Player Style Floating Bubble Player */
 
-// DEFAULT PLAYABLE TRACKS
-let wmpPlaylistTracks = [
+let wmpPlaylistTracks = [];
+let wmpCurrentTrackIndex = 0;
+let wmpIsShuffle = false;
+let wmpAudio = new Audio();
+
+const state = {
+    power: true,
+    playing: false,
+    volume: 4,
+    muted: false,
+    trackIndex: 0,
+};
+
+// Default high-res Frutiger Aero playlists
+const defaultTracks = [
     {
         id: "demo1",
         title: "Horizon Drift",
         artist: "Late Static",
-        cover_url: "/static/images/real_cd.png",
+        cover_url: "/real_cd.png",
         duration_ms: 205000,
         preview_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
     },
@@ -16,7 +27,7 @@ let wmpPlaylistTracks = [
         id: "demo2",
         title: "Frutiger Dreams",
         artist: "Aqua Wave",
-        cover_url: "/static/images/real_cd.png",
+        cover_url: "/real_cd.png",
         duration_ms: 184000,
         preview_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"
     },
@@ -24,7 +35,7 @@ let wmpPlaylistTracks = [
         id: "demo3",
         title: "Cyber Aquatic",
         artist: "Aero-Orbit 2000",
-        cover_url: "/static/images/real_cd.png",
+        cover_url: "/real_cd.png",
         duration_ms: 220000,
         preview_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"
     },
@@ -32,64 +43,30 @@ let wmpPlaylistTracks = [
         id: "demo4",
         title: "Starlight Promenade",
         artist: "Vista Glass",
-        cover_url: "/static/images/real_cd.png",
+        cover_url: "/real_cd.png",
         duration_ms: 195000,
         preview_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
     }
 ];
 
-let wmpCurrentTrackIndex = 0;
-let wmpIsShuffle = false;
-let isMinimized = false;
-const wmpAudio = new Audio();
-
-let state = { power: true, playing: false, trackIndex: 0, progress: 0, volume: 3, muted: false };
-
 function initWmpPlayer() {
-    wmpAudio.addEventListener("timeupdate", () => {
-        if (wmpAudio.duration) {
-            const pct = (wmpAudio.currentTime / wmpAudio.duration) * 100;
-            const fill = document.getElementById("progressFill");
-            if (fill) fill.style.width = pct + "%";
-
-            const timeCurr = formatTimeMs(wmpAudio.currentTime * 1000);
-            const timeTotal = formatTimeMs(wmpAudio.duration * 1000);
-
-            const currElem = document.getElementById("orbTimeCurr");
-            const totalElem = document.getElementById("orbTimeTotal");
-            if (currElem) currElem.textContent = timeCurr;
-            if (totalElem) totalElem.textContent = timeTotal;
-        }
-    });
-
-    wmpAudio.addEventListener("ended", () => {
-        wmpPlayNext();
-    });
-
-    // Main Orb Click Handler: Expand if minimized
-    const mainOrb = document.getElementById('mainOrb');
-    const bubbleSystem = document.getElementById('wmp-widget');
-
-    if (mainOrb && bubbleSystem) {
-        mainOrb.addEventListener('click', (e) => {
-            if (isMinimized) {
-                bubbleSystem.classList.remove('minimized');
-                isMinimized = false;
-                e.stopPropagation();
-            }
-        });
-    }
-
-    wmpSetTrack(0, false);
+    setupWmpEvents();
     renderVolume();
-}
 
-function formatTimeMs(ms) {
-    if (!ms || isNaN(ms)) return "0:00";
-    const totalSecs = Math.floor(ms / 1000);
-    const mins = Math.floor(totalSecs / 60);
-    const secs = Math.floor(totalSecs % 60);
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    // Auto-fetch today's top trending songs on startup
+    fetch('/api/trending')
+        .then(res => res.json())
+        .then(data => {
+            if (data.tracks && data.tracks.length > 0) {
+                loadWmpPlaylist(data.tracks, data.cover_url);
+            } else {
+                loadWmpPlaylist(defaultTracks);
+            }
+        })
+        .catch(err => {
+            console.log("Trending load note:", err);
+            loadWmpPlaylist(defaultTracks);
+        });
 }
 
 function loadWmpPlaylist(tracks, defaultCover) {
@@ -97,9 +74,8 @@ function loadWmpPlaylist(tracks, defaultCover) {
         id: t.id,
         title: t.title,
         artist: t.artist,
-        cover_url: t.cover_url || defaultCover || "/static/images/real_cd.png",
+        cover_url: t.cover_url || defaultCover || "/real_cd.png",
         duration_ms: t.duration_ms,
-        // Fallback playable audio stream if Spotify preview stream is missing
         preview_url: t.preview_url || `https://www.soundhelix.com/examples/mp3/SoundHelix-Song-${(idx % 15) + 1}.mp3`
     }));
 
@@ -118,9 +94,18 @@ function renderTrack() {
 
     if (trackTitle) trackTitle.textContent = t.title;
     if (trackArtist) trackArtist.textContent = t.artist;
-    if (thumb && t.cover_url) thumb.src = t.cover_url;
+    if (thumb) {
+        thumb.onerror = function() {
+            this.onerror = null;
+            this.src = '/real_cd.png';
+        };
+        if (t.cover_url) {
+            thumb.src = t.cover_url;
+        } else {
+            thumb.src = '/real_cd.png';
+        }
+    }
 
-    // UPDATE FLOATING NEXT SONG CARD INDICATOR!
     const nextIdx = (state.trackIndex + 1) % wmpPlaylistTracks.length;
     const nextTrack = wmpPlaylistTracks[nextIdx];
     if (nextSongTitle && nextTrack) {
@@ -198,100 +183,98 @@ function wmpStop() {
 function wmpPlayNext() {
     if (!state.power || wmpPlaylistTracks.length === 0) return;
     if (wmpIsShuffle) {
-        let nextIdx = Math.floor(Math.random() * wmpPlaylistTracks.length);
-        wmpSetTrack(nextIdx, true);
+        const rnd = Math.floor(Math.random() * wmpPlaylistTracks.length);
+        wmpSetTrack(rnd);
     } else {
-        if (wmpCurrentTrackIndex + 1 < wmpPlaylistTracks.length) {
-            wmpSetTrack(wmpCurrentTrackIndex + 1, true);
-        } else {
-            wmpSetTrack(0, true);
-        }
+        const next = (state.trackIndex + 1) % wmpPlaylistTracks.length;
+        wmpSetTrack(next);
     }
 }
 
 function wmpPlayPrev() {
     if (!state.power || wmpPlaylistTracks.length === 0) return;
-    if (wmpIsShuffle) {
-        let prevIdx = Math.floor(Math.random() * wmpPlaylistTracks.length);
-        wmpSetTrack(prevIdx, true);
-    } else {
-        if (wmpCurrentTrackIndex - 1 >= 0) {
-            wmpSetTrack(wmpCurrentTrackIndex - 1, true);
-        } else {
-            wmpSetTrack(wmpPlaylistTracks.length - 1, true);
-        }
-    }
+    const prev = (state.trackIndex - 1 + wmpPlaylistTracks.length) % wmpPlaylistTracks.length;
+    wmpSetTrack(prev);
 }
 
 function wmpToggleShuffle() {
     wmpIsShuffle = !wmpIsShuffle;
-    const shuffleOrb = document.getElementById('satShuf');
-    if (shuffleOrb) {
-        shuffleOrb.classList.toggle('active', wmpIsShuffle);
-    }
+    const satShuf = document.getElementById('satShuf');
+    if (satShuf) satShuf.classList.toggle('active', wmpIsShuffle);
+}
+
+function wmpSetVolLevel(lvl) {
+    state.volume = lvl;
+    state.muted = false;
+    wmpAudio.volume = lvl / 5;
+    renderVolume();
 }
 
 function wmpToggleMenu() {
-    if (!state.power) return;
     const drawer = document.getElementById('orbDrawer');
-    const drawerList = document.getElementById('orbDrawerList');
-    if (!drawer || !drawerList) return;
+    const list = document.getElementById('orbDrawerList');
+    if (!drawer || !list) return;
 
-    drawerList.innerHTML = wmpPlaylistTracks.map((t, i) =>
-        `<div onclick="wmpSetTrack(${i}, true); document.getElementById('orbDrawer').classList.remove('show');" class="${i === state.trackIndex ? 'active' : ''}">${t.title} — ${t.artist}</div>`
-    ).join('');
+    list.innerHTML = '';
+    wmpPlaylistTracks.forEach((t, i) => {
+        const item = document.createElement('div');
+        item.className = `aero-drawer-item ${i === state.trackIndex ? 'active' : ''}`;
+        item.textContent = `${t.title} — ${t.artist}`;
+        item.onclick = () => {
+            wmpSetTrack(i);
+            drawer.classList.remove('show');
+        };
+        list.appendChild(item);
+    });
 
     drawer.classList.toggle('show');
 }
 
-function wmpSetVolLevel(lvl) {
-    if (!state.power) return;
-    state.muted = false;
-    state.volume = parseInt(lvl);
-    wmpAudio.volume = state.volume / 5;
-    renderVolume();
-}
-
 function wmpMinimize() {
-    const bubbleSystem = document.getElementById("wmp-widget");
-    if (bubbleSystem) {
-        bubbleSystem.classList.add("minimized");
-        isMinimized = true;
+    const widget = document.getElementById('wmp-widget');
+    if (widget) {
+        widget.classList.add('absorbed');
+        setTimeout(() => {
+            widget.classList.remove('absorbed');
+        }, 3000);
     }
 }
 
-// SEQUENTIAL EXPLOSION DESTRUCTION ANIMATION ON CLICKING 'X' CLOSE
 function wmpExplodeDestroy() {
-    const mainOrb = document.getElementById('mainOrb');
-    const nextCard = document.getElementById('nextCard');
-    const satellites = [
-        document.getElementById('satPlay'),
-        document.getElementById('satStop'),
-        document.getElementById('satPrev'),
-        document.getElementById('satNext'),
-        document.getElementById('satShuf'),
-        document.getElementById('satMenu')
-    ];
-    const system = document.getElementById('wmp-widget');
-
-    wmpAudio.pause();
-    setPlaying(false);
-
-    if (nextCard) nextCard.classList.add('exploding-sat');
-    if (mainOrb) mainOrb.classList.add('exploding-main');
-
-    satellites.forEach((sat, index) => {
-        if (!sat) return;
+    const widget = document.getElementById('wmp-widget');
+    if (widget) {
+        widget.classList.add('exploding');
         setTimeout(() => {
-            sat.classList.add('exploding-sat');
-        }, 150 + index * 90);
-    });
-
-    setTimeout(() => {
-        if (system) system.style.display = 'none';
-    }, 900);
+            widget.style.display = 'none';
+        }, 500);
+    }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+function setupWmpEvents() {
+    wmpAudio.addEventListener('timeupdate', () => {
+        if (!wmpAudio.duration) return;
+        const pct = (wmpAudio.currentTime / wmpAudio.duration) * 100;
+        const fill = document.getElementById('progressFill');
+        const curr = document.getElementById('orbTimeCurr');
+        const tot = document.getElementById('orbTimeTotal');
+
+        if (fill) fill.style.width = `${pct}%`;
+        if (curr) curr.textContent = formatTime(wmpAudio.currentTime);
+        if (tot) tot.textContent = formatTime(wmpAudio.duration);
+    });
+
+    wmpAudio.addEventListener('ended', () => {
+        wmpPlayNext();
+    });
+}
+
+function formatTime(s) {
+    if (isNaN(s)) return "0:00";
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec < 10 ? '0' : ''}${sec}`;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
     initWmpPlayer();
 });
