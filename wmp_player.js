@@ -13,7 +13,6 @@ const state = {
     trackIndex: 0,
 };
 
-// Default high-res Frutiger Aero playlists
 const defaultTracks = [
     {
         id: "demo1",
@@ -53,7 +52,6 @@ function initWmpPlayer() {
     setupWmpEvents();
     renderVolume();
 
-    // Auto-fetch today's top trending songs on startup
     fetch('/api/trending')
         .then(res => res.json())
         .then(data => {
@@ -146,7 +144,7 @@ function wmpSetTrack(index, autoPlay = true) {
 
     if (track.preview_url) {
         wmpAudio.src = track.preview_url;
-        if (autoPlay && state.power) {
+        if (autoPlay) {
             wmpAudio.play().then(() => {
                 setPlaying(true);
             }).catch(() => {});
@@ -158,12 +156,15 @@ function wmpSetTrack(index, autoPlay = true) {
 }
 
 function wmpTogglePlay() {
-    if (!state.power || !wmpAudio.src) return;
+    if (!wmpAudio.src && wmpPlaylistTracks.length > 0) {
+        wmpSetTrack(0, true);
+        return;
+    }
     if (wmpAudio.paused) {
         wmpAudio.play().then(() => {
             setPlaying(true);
         }).catch((err) => {
-            console.log("Audio play error:", err);
+            console.log("Audio play note:", err);
         });
     } else {
         wmpAudio.pause();
@@ -172,7 +173,6 @@ function wmpTogglePlay() {
 }
 
 function wmpStop() {
-    if (!state.power) return;
     wmpAudio.pause();
     wmpAudio.currentTime = 0;
     const fill = document.getElementById("progressFill");
@@ -181,20 +181,20 @@ function wmpStop() {
 }
 
 function wmpPlayNext() {
-    if (!state.power || wmpPlaylistTracks.length === 0) return;
+    if (wmpPlaylistTracks.length === 0) return;
     if (wmpIsShuffle) {
         const rnd = Math.floor(Math.random() * wmpPlaylistTracks.length);
-        wmpSetTrack(rnd);
+        wmpSetTrack(rnd, true);
     } else {
         const next = (state.trackIndex + 1) % wmpPlaylistTracks.length;
-        wmpSetTrack(next);
+        wmpSetTrack(next, true);
     }
 }
 
 function wmpPlayPrev() {
-    if (!state.power || wmpPlaylistTracks.length === 0) return;
+    if (wmpPlaylistTracks.length === 0) return;
     const prev = (state.trackIndex - 1 + wmpPlaylistTracks.length) % wmpPlaylistTracks.length;
-    wmpSetTrack(prev);
+    wmpSetTrack(prev, true);
 }
 
 function wmpToggleShuffle() {
@@ -221,7 +221,7 @@ function wmpToggleMenu() {
         item.className = `aero-drawer-item ${i === state.trackIndex ? 'active' : ''}`;
         item.textContent = `${t.title} — ${t.artist}`;
         item.onclick = () => {
-            wmpSetTrack(i);
+            wmpSetTrack(i, true);
             drawer.classList.remove('show');
         };
         list.appendChild(item);
