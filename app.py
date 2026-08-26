@@ -16,7 +16,20 @@ from queue import Queue
 from flask import Flask, render_template, request, jsonify, Response, send_file
 from downloader import fetch_playlist, download_playlist, extract_playlist_id
 
-app = Flask(__name__)
+from jinja2 import ChoiceLoader, FileSystemLoader
+
+base_dir = os.path.dirname(os.path.abspath(__file__))
+tmpl_dir = os.path.join(base_dir, "templates")
+stat_dir = os.path.join(base_dir, "static")
+
+app = Flask(__name__, template_folder=tmpl_dir, static_folder=stat_dir)
+
+app.jinja_loader = ChoiceLoader([
+    FileSystemLoader(tmpl_dir),
+    FileSystemLoader(base_dir),
+    FileSystemLoader(os.path.join(base_dir, "templates")),
+    FileSystemLoader(os.path.join(base_dir, "src", "templates")),
+])
 
 DOWNLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "downloads")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
