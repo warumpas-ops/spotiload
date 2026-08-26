@@ -241,9 +241,6 @@ def get_playlist():
                 "duration_ms": t["duration_ms"],
             })
 
-        if not frontend_tracks:
-            return jsonify({"error": "Playlist not found or private. Please check that your Spotify playlist link is public!"}), 404
-
         return jsonify({
             "name": playlist_data.get("name", "Spotify Playlist"),
             "description": playlist_data.get("description", ""),
