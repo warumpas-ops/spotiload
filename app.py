@@ -1,6 +1,5 @@
 import sys
 
-# Ensure UTF-8 output on Windows
 if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -34,13 +33,43 @@ app.jinja_loader = ChoiceLoader([
 DOWNLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "downloads")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Store active download sessions
 download_sessions = {}
 
 
 @app.route("/")
 def index():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(base_dir, "templates", "index.html"),
+        os.path.join(base_dir, "index.html"),
+        os.path.join(base_dir, "src", "templates", "index.html"),
+        os.path.join(base_dir, "src", "index.html"),
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return send_file(path)
+    for root, dirs, files in os.walk(base_dir):
+        if "index.html" in files:
+            return send_file(os.path.join(root, "index.html"))
     return render_template("index.html")
+
+
+@app.route("/static/<path:filename>")
+def custom_static(filename):
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(base_dir, "static", filename),
+        os.path.join(base_dir, filename),
+        os.path.join(base_dir, "src", "static", filename),
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return send_file(path)
+    target = os.path.basename(filename)
+    for root, dirs, files in os.walk(base_dir):
+        if target in files:
+            return send_file(os.path.join(root, target))
+    return "Static file not found", 404
 
 
 @app.route("/whimsy")
@@ -196,10 +225,4 @@ def download_file(session_id):
 
 
 if __name__ == "__main__":
-    print()
-    print("  Spotiload - Spotify Playlist Downloader")
-    print("  No API keys needed - just paste a link!")
-    print()
-    print("  Open: http://localhost:5000")
-    print()
     app.run(debug=True, port=5000, threaded=True)
