@@ -13,14 +13,7 @@ import uuid
 import threading
 from queue import Queue
 from flask import Flask, render_template, request, jsonify, Response, send_file
-
-try:
-    from downloader import fetch_playlist, download_playlist, extract_playlist_id
-except Exception as e:
-    print(f"Downloader import note: {e}")
-    fetch_playlist = lambda url: {"name": "Spotiload", "tracks": []}
-    download_playlist = None
-    extract_playlist_id = lambda url: "id"
+from downloader import fetch_playlist, download_playlist, extract_playlist_id
 
 from jinja2 import ChoiceLoader, FileSystemLoader
 
@@ -109,7 +102,6 @@ def wearable_ui():
 
 @app.route("/api/trending", methods=["GET"])
 def get_trending():
-    """Fetch today's top trending songs with instant 0.1-second response time."""
     curated_trending = [
         {
             "id": "tr1",
@@ -146,70 +138,8 @@ def get_trending():
             "cover_url": "https://i.scdn.co/image/ab67616d0000b2731ea0c62b2339cbf493a999ad",
             "duration_ms": 274000,
             "preview_url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
-        },
-        {
-            "id": "tr5",
-            "title": "I Had Some Help",
-            "artist": "Post Malone ft. Morgan Wallen",
-            "album": "F-1 Trillion",
-            "cover_url": "https://i.scdn.co/image/ab67616d0000b2738b0561570536d5d5904d9092",
-            "duration_ms": 178000,
-            "preview_url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3"
-        },
-        {
-            "id": "tr6",
-            "title": "360",
-            "artist": "Charli xcx",
-            "album": "BRAT",
-            "cover_url": "https://i.scdn.co/image/ab67616d0000b273827b5e40e271be9b16869400",
-            "duration_ms": 133000,
-            "preview_url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3"
-        },
-        {
-            "id": "tr7",
-            "title": "Houdini",
-            "artist": "Dua Lipa",
-            "album": "Radical Optimism",
-            "cover_url": "https://i.scdn.co/image/ab67616d0000b273881df8d64119d6756627063d",
-            "duration_ms": 185000,
-            "preview_url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3"
-        },
-        {
-            "id": "tr8",
-            "title": "Blinding Lights",
-            "artist": "The Weeknd",
-            "album": "After Hours",
-            "cover_url": "https://i.scdn.co/image/ab67616d0000b2738863bc11d2aa12b5d8a8a36e",
-            "duration_ms": 200000,
-            "preview_url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"
         }
     ]
-
-    trending_url = "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"
-    try:
-        playlist_data = fetch_playlist(trending_url)
-        frontend_tracks = []
-        for t in playlist_data.get("tracks", [])[:20]:
-            frontend_tracks.append({
-                "id": t["id"],
-                "title": t["title"],
-                "artist": t["artist"],
-                "album": t["album"],
-                "cover_url": t.get("cover_url", ""),
-                "duration_ms": t["duration_ms"],
-                "preview_url": t.get("preview_url", "") or f"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-{(hash(t['title']) % 15) + 1}.mp3",
-            })
-        if frontend_tracks:
-            return jsonify({
-                "name": playlist_data.get("name", "Today's Top Hits"),
-                "owner": "Spotify",
-                "cover_url": playlist_data.get("cover_url", ""),
-                "total_tracks": len(frontend_tracks),
-                "tracks": frontend_tracks,
-            })
-    except Exception as e:
-        print(f"Live trending fetch note: {e}")
-
     return jsonify({
         "name": "Today's Top Hits 2026",
         "owner": "Spotiload",
@@ -221,7 +151,6 @@ def get_trending():
 
 @app.route("/api/playlist", methods=["POST"])
 def get_playlist():
-    """Fetch playlist metadata and track list from Spotify (no credentials needed)."""
     data = request.get_json()
     url = data.get("url", "").strip()
 
@@ -257,7 +186,6 @@ def get_playlist():
 
 @app.route("/api/download", methods=["POST"])
 def start_download():
-    """Start downloading a playlist. Returns a session ID for SSE progress tracking."""
     data = request.get_json()
     url = data.get("url", "").strip()
 
@@ -300,7 +228,6 @@ def start_download():
 
 @app.route("/api/progress/<session_id>")
 def stream_progress(session_id):
-    """SSE endpoint for real-time download progress."""
     session = download_sessions.get(session_id)
     if not session:
         return jsonify({"error": "Session not found"}), 404
@@ -319,7 +246,6 @@ def stream_progress(session_id):
 
 @app.route("/api/file/<session_id>")
 def download_file(session_id):
-    """Serve the final zip file for download."""
     session = download_sessions.get(session_id)
     if not session or not session.get("zip_path"):
         return jsonify({"error": "File not ready or session not found"}), 404
