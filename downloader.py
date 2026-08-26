@@ -1,6 +1,5 @@
 """
 downloader.py — High-speed parallel download engine with automatic retries, MusicBrainz Picard-style multi-source cover art resolver, and Pillow JPEG normalization
-Handles: Spotify scraping, parallel YouTube downloads (yt-dlp), multi-source artwork resolution (Spotify + Deezer + iTunes + MusicBrainz/CAA), Pillow JPEG conversion, and ID3v2.3 MP3 tagging.
 """
 
 import sys
@@ -77,7 +76,7 @@ def extract_playlist_id(url: str) -> str:
         match = re.search(pattern, url)
         if match:
             return match.group(1)
-    raise ValueError("Invalid Spotify playlist URL. Make sure it looks like: https://open.spotify.com/playlist/...")
+    raise ValueError("Invalid Spotify playlist URL.")
 
 
 def _get_anonymous_token() -> str:
@@ -118,35 +117,25 @@ def _fetch_with_token(playlist_id: str, token: str) -> dict:
 
 
 def _scrape_embed_page(playlist_id: str) -> dict:
-    """Robust multi-url scraper for Spotify playlists."""
-    urls = [
-        f"https://open.spotify.com/embed/playlist/{playlist_id}",
-        f"https://open.spotify.com/playlist/{playlist_id}",
-    ]
-    for url in urls:
+    embed_url = f"https://open.spotify.com/embed/playlist/{playlist_id}"
+    resp = requests.get(embed_url, headers=HEADERS, timeout=15)
+
+    if resp.status_code != 200:
+        raise RuntimeError(f"Could not load Spotify embed page (status {resp.status_code})")
+
+    match = re.search(
+        r'<script\s+id="__NEXT_DATA__"\s+type="application/json">\s*(.*?)\s*</script>',
+        resp.text,
+        re.DOTALL,
+    )
+    if match:
+        return json.loads(match.group(1))
+
+    match = re.search(r'"entity":\s*(\{.*?"tracks".*?\})\s*[,}]', resp.text, re.DOTALL)
+    if match:
         try:
-            resp = requests.get(url, headers=HEADERS, timeout=10)
-            if resp.status_code != 200:
-                continue
-
-            idx = resp.text.find('__NEXT_DATA__')
-            if idx != -1:
-                start = resp.text.find('>', idx) + 1
-                end = resp.text.find('</script>', start)
-                if start > 0 and end > start:
-                    return json.loads(resp.text[start:end])
-
-            idx_state = resp.text.find('initial-state')
-            if idx_state != -1:
-                start = resp.text.find('>', idx_state) + 1
-                end = resp.text.find('</script>', start)
-                if start > 0 and end > start:
-                    return json.loads(resp.text[start:end])
-
-            match = re.search(r'"entity":\s*(\{.*?"tracks".*?\})\s*[,}]', resp.text, re.DOTALL)
-            if match:
-                return json.loads(match.group(1))
-        except Exception:
+            return json.loads(match.group(1))
+        except json.JSONDecodeError:
             pass
 
     raise RuntimeError("Could not parse Spotify page data. The playlist might be private.")
@@ -179,7 +168,7 @@ def _parse_api_response(raw: dict) -> dict:
         })
 
     playlist_images = raw.get("images", [])
-    cover_url = playlist_images[0]["url"] if playlist_images else None
+    cover_url = playlist_images[0]["url"] if images else None
 
     return {
         "name": sanitize_text(raw.get("name", "Playlist")),
@@ -260,56 +249,6 @@ def fetch_playlist(playlist_url: str) -> dict:
             pass
 
     if not result:
-        raise RuntimeError("Could not fetch playlist data. Make sure the playlist is public.")
-
-    playlist_cover = result.get("cover_url")
-    for track in result["tracks"]:
-        if not track.get("cover_url") and playlist_cover:
-            track["cover_url"] = playlist_cover
-
-    try:
-        def _fetch_single_enrichment(t):
-            cov_url = t.get("cover_url")
-            prev_url = t.get("preview_url")
-
-            if cov_url and prev_url:
-                return prev_url, cov_url
-
-            title = clean_query_title(t.get("title", ""))
-            artist = t.get("artist", "")
-
-            if not prev_url:
-                try:
-                    r = requests.get(f"https://api.deezer.com/search?q={artist} {title}", headers=HEADERS, timeout=1.5).json()
-                    if r.get("data") and len(r["data"]) > 0:
-                        item = r["data"][0]
-                        prev_url = item.get("preview")
-                        if not cov_url:
-                            album = item.get("album", {})
-                            cov_url = album.get("cover_xl") or album.get("cover_big") or album.get("cover_medium")
-                except Exception:
-                    pass
-
-            if not cov_url:
-                try:
-                    r = requests.get(f"https://itunes.apple.com/search?term={artist} {title}&entity=song&limit=1", headers=HEADERS, timeout=1.5).json()
-                    if r.get("results") and len(r["results"]) > 0:
-                        cov_url = r["results"][0].get("artworkUrl100", "").replace("100x100bb", "600x600bb")
-                except Exception:
-                    pass
-
-            return prev_url, cov_url
-
-        target_tracks = result["tracks"][:25]
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            enrichments = list(executor.map(_fetch_single_enrichment, target_tracks))
-
-        for t, (p, c) in zip(target_tracks, enrichments):
-            if p:
-                t["preview_url"] = p
-            if c:
-                t["cover_url"] = c
-    except Exception as e:
-        print("Enrichment note:", e)
+        raise RuntimeError("Could not fetch playlist data.")
 
     return result
