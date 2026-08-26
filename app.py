@@ -231,7 +231,7 @@ def get_playlist():
     try:
         playlist_data = fetch_playlist(url)
         frontend_tracks = []
-        for t in playlist_data["tracks"]:
+        for t in playlist_data.get("tracks", []):
             frontend_tracks.append({
                 "id": t["id"],
                 "title": t["title"],
@@ -241,12 +241,15 @@ def get_playlist():
                 "duration_ms": t["duration_ms"],
             })
 
+        if not frontend_tracks:
+            return jsonify({"error": "Playlist not found or private. Please check that your Spotify playlist link is public!"}), 404
+
         return jsonify({
             "name": playlist_data.get("name", "Spotify Playlist"),
             "description": playlist_data.get("description", ""),
             "owner": playlist_data.get("owner", "Unknown"),
             "cover_url": playlist_data.get("cover_url", ""),
-            "total_tracks": playlist_data.get("total_tracks", len(frontend_tracks)),
+            "total_tracks": len(frontend_tracks),
             "tracks": frontend_tracks,
         })
     except ValueError as e:
