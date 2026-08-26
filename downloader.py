@@ -118,25 +118,35 @@ def _fetch_with_token(playlist_id: str, token: str) -> dict:
 
 
 def _scrape_embed_page(playlist_id: str) -> dict:
-    embed_url = f"https://open.spotify.com/embed/playlist/{playlist_id}"
-    resp = requests.get(embed_url, headers=HEADERS, timeout=10)
-
-    if resp.status_code != 200:
-        raise RuntimeError(f"Could not load Spotify embed page (status {resp.status_code})")
-
-    match = re.search(
-        r'<script\s+id="__NEXT_DATA__"\s+type="application/json">\s*(.*?)\s*</script>',
-        resp.text,
-        re.DOTALL,
-    )
-    if match:
-        return json.loads(match.group(1))
-
-    match = re.search(r'"entity":\s*(\{.*?"tracks".*?\})\s*[,}]', resp.text, re.DOTALL)
-    if match:
+    """Robust multi-url scraper for Spotify playlists."""
+    urls = [
+        f"https://open.spotify.com/embed/playlist/{playlist_id}",
+        f"https://open.spotify.com/playlist/{playlist_id}",
+    ]
+    for url in urls:
         try:
-            return json.loads(match.group(1))
-        except json.JSONDecodeError:
+            resp = requests.get(url, headers=HEADERS, timeout=10)
+            if resp.status_code != 200:
+                continue
+
+            idx = resp.text.find('__NEXT_DATA__')
+            if idx != -1:
+                start = resp.text.find('>', idx) + 1
+                end = resp.text.find('</script>', start)
+                if start > 0 and end > start:
+                    return json.loads(resp.text[start:end])
+
+            idx_state = resp.text.find('initial-state')
+            if idx_state != -1:
+                start = resp.text.find('>', idx_state) + 1
+                end = resp.text.find('</script>', start)
+                if start > 0 and end > start:
+                    return json.loads(resp.text[start:end])
+
+            match = re.search(r'"entity":\s*(\{.*?"tracks".*?\})\s*[,}]', resp.text, re.DOTALL)
+            if match:
+                return json.loads(match.group(1))
+        except Exception:
             pass
 
     raise RuntimeError("Could not parse Spotify page data. The playlist might be private.")
