@@ -233,21 +233,28 @@ function wmpToggleMenu() {
 function wmpMinimize() {
     const widget = document.getElementById('wmp-widget');
     if (widget) {
-        widget.classList.add('absorbed');
-        setTimeout(() => {
-            widget.classList.remove('absorbed');
-        }, 3000);
+        widget.classList.toggle('minimized');
     }
 }
 
 function wmpExplodeDestroy() {
-    const widget = document.getElementById('wmp-widget');
-    if (widget) {
-        widget.classList.add('exploding');
+    const nextCard = document.getElementById('nextCard');
+    const mainOrb = document.getElementById('mainOrb');
+    const satOrbs = document.querySelectorAll('.aero-satellite-orb');
+
+    if (nextCard) nextCard.classList.add('exploding-sat');
+    if (mainOrb) mainOrb.classList.add('exploding-main');
+
+    satOrbs.forEach((orb, i) => {
         setTimeout(() => {
-            widget.style.display = 'none';
-        }, 500);
-    }
+            orb.classList.add('exploding-sat');
+        }, i * 60);
+    });
+
+    setTimeout(() => {
+        const widget = document.getElementById('wmp-widget');
+        if (widget) widget.style.display = 'none';
+    }, 600);
 }
 
 function setupWmpEvents() {
