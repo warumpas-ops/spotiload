@@ -90,16 +90,6 @@ def serve_root_files(filename):
     return "File Not Found", 404
 
 
-@app.route("/whimsy")
-def whimsy_ui():
-    return render_template("whimsy.html")
-
-
-@app.route("/wearable")
-def wearable_ui():
-    return render_template("wearable.html")
-
-
 @app.route("/api/trending", methods=["GET"])
 def get_trending():
     curated_trending = [
