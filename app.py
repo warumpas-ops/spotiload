@@ -237,16 +237,16 @@ def get_playlist():
                 "title": t["title"],
                 "artist": t["artist"],
                 "album": t["album"],
-                "cover_url": t["cover_url"],
+                "cover_url": t.get("cover_url", ""),
                 "duration_ms": t["duration_ms"],
             })
 
         return jsonify({
-            "name": playlist_data["name"],
-            "description": playlist_data["description"],
-            "owner": playlist_data["owner"],
-            "cover_url": playlist_data["cover_url"],
-            "total_tracks": playlist_data["total_tracks"],
+            "name": playlist_data.get("name", "Spotify Playlist"),
+            "description": playlist_data.get("description", ""),
+            "owner": playlist_data.get("owner", "Unknown"),
+            "cover_url": playlist_data.get("cover_url", ""),
+            "total_tracks": playlist_data.get("total_tracks", len(frontend_tracks)),
             "tracks": frontend_tracks,
         })
     except ValueError as e:
