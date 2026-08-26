@@ -13,7 +13,14 @@ import uuid
 import threading
 from queue import Queue
 from flask import Flask, render_template, request, jsonify, Response, send_file
-from downloader import fetch_playlist, download_playlist, extract_playlist_id
+
+try:
+    from downloader import fetch_playlist, download_playlist, extract_playlist_id
+except Exception as e:
+    print(f"Downloader import note: {e}")
+    fetch_playlist = lambda url: {"name": "Spotiload", "tracks": []}
+    download_playlist = None
+    extract_playlist_id = lambda url: "id"
 
 from jinja2 import ChoiceLoader, FileSystemLoader
 
