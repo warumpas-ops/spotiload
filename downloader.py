@@ -458,14 +458,25 @@ def get_song_specific_cover(track: dict, yt_thumbnail_url: str = None, default_c
 
 def search_and_download(track: dict, output_dir: str) -> tuple:
     """
-    Search YouTube for a track, download as MP3, and return (mp3_path, yt_thumbnail_url).
+    Search YouTube for a track, download as MP3.
+    Uses a multi-client fallback chain to bypass bot detection on cloud/datacenter IPs:
+      1. tv_embedded — YouTube TV client, no sign-in required, bypasses datacenter blocks
+      2. android      — Android app client
+      3. web_embedded — Embedded player, no sign-in required
     """
-    search_query = f"{track['title']} {track['artist']} audio"
+    # Strip noisy suffixes like BONUS, DELUXE EDITION, REMASTER, etc. for cleaner YouTube search
+    import re as _re
+    clean_title = _re.sub(
+        r'\s*[\(\[\-]?\s*(bonus|deluxe|edition|remaster|remastered|explicit|feat\.|ft\.)[^\)\]]*[\)\]]?',
+        '', track['title'], flags=_re.IGNORECASE
+    ).strip()
+    search_query = f"{clean_title} {track['artist']} audio"
     safe_filename = re.sub(r'[<>:"/\\|?*]', "_", f"{track['artist']} - {track['title']}")
+
     safe_filename = safe_filename[:200]
     output_path = os.path.join(output_dir, safe_filename)
 
-    ydl_opts = {
+    base_opts = {
         "format": "bestaudio/best",
         "outtmpl": output_path + ".%(ext)s",
         "postprocessors": [
@@ -480,31 +491,58 @@ def search_and_download(track: dict, output_dir: str) -> tuple:
         "default_search": "ytsearch1",
         "noplaylist": True,
         "socket_timeout": 15,
-        "retries": 5,
-        "fragment_retries": 5,
-        "file_access_retries": 3,
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["android"],
-            }
-        },
+        "retries": 3,
+        "fragment_retries": 3,
         "http_headers": HEADERS,
     }
 
-    yt_thumbnail = None
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(search_query, download=True)
-        if info:
-            if "entries" in info and info["entries"]:
-                entry = info["entries"][0]
-                yt_thumbnail = entry.get("thumbnail")
-            else:
-                yt_thumbnail = info.get("thumbnail")
+    # Client fallback order — tv_embedded is the most reliable on cloud IPs
+    client_chains = [
+        ["tv_embedded"],
+        ["android"],
+        ["web_embedded"],
+    ]
 
+    yt_thumbnail = None
+    last_error = None
+
+    for clients in client_chains:
+        ydl_opts = dict(base_opts)
+        ydl_opts["extractor_args"] = {
+            "youtube": {
+                "player_client": clients,
+                "player_skip_webpage": ["true"],
+            }
+        }
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(search_query, download=True)
+                if info:
+                    if "entries" in info and info["entries"]:
+                        yt_thumbnail = info["entries"][0].get("thumbnail")
+                    else:
+                        yt_thumbnail = info.get("thumbnail")
+            # If we got here without exception, download succeeded
+            last_error = None
+            break
+        except Exception as e:
+            last_error = e
+            err_str = str(e).lower()
+            # Only retry on bot detection errors
+            if "sign in" in err_str or "bot" in err_str or "confirm" in err_str:
+                print(f"Client {clients} blocked, trying next... ({track['title']})")
+                continue
+            # Any other error (network, not found) — don't retry
+            break
+
+    if last_error:
+        raise last_error
+
+    # Find the downloaded file
     mp3_path = output_path + ".mp3"
     if not os.path.exists(mp3_path):
         for f in os.listdir(output_dir):
-            if f.startswith(safe_filename) and f.endswith(".mp3"):
+            if f.startswith(safe_filename[:30]) and f.endswith(".mp3"):
                 mp3_path = os.path.join(output_dir, f)
                 break
 
@@ -512,6 +550,7 @@ def search_and_download(track: dict, output_dir: str) -> tuple:
         raise FileNotFoundError(f"Download failed for: {track['title']}")
 
     return mp3_path, yt_thumbnail
+
 
 
 def tag_mp3(filepath: str, track: dict, cover_url: str = None) -> None:
