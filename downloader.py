@@ -496,11 +496,11 @@ def search_and_download(track: dict, output_dir: str) -> tuple:
         "http_headers": HEADERS,
     }
 
-    # Client fallback order — tv_embedded is the most reliable on cloud IPs
+    # Client fallback order — android_music connects to YouTube Music API without sign-in checks
     client_chains = [
-        ["tv_embedded"],
+        ["android_music", "android"],
+        ["android_creator", "android"],
         ["android"],
-        ["web_embedded"],
     ]
 
     yt_thumbnail = None
@@ -511,7 +511,7 @@ def search_and_download(track: dict, output_dir: str) -> tuple:
         ydl_opts["extractor_args"] = {
             "youtube": {
                 "player_client": clients,
-                "player_skip_webpage": ["true"],
+                "player_skip": ["webpage", "configs"],
             }
         }
         try:
@@ -522,17 +522,14 @@ def search_and_download(track: dict, output_dir: str) -> tuple:
                         yt_thumbnail = info["entries"][0].get("thumbnail")
                     else:
                         yt_thumbnail = info.get("thumbnail")
-            # If we got here without exception, download succeeded
             last_error = None
             break
         except Exception as e:
             last_error = e
             err_str = str(e).lower()
-            # Only retry on bot detection errors
-            if "sign in" in err_str or "bot" in err_str or "confirm" in err_str:
-                print(f"Client {clients} blocked, trying next... ({track['title']})")
+            if "sign in" in err_str or "bot" in err_str or "confirm" in err_str or "format" in err_str:
+                print(f"Client {clients} failed, trying next... ({track['title']})")
                 continue
-            # Any other error (network, not found) — don't retry
             break
 
     if last_error:
@@ -561,7 +558,6 @@ def tag_mp3(filepath: str, track: dict, cover_url: str = None) -> None:
         except ID3NoHeaderError:
             tags = ID3()
 
-        # Use encoding=1 (UTF-16 with BOM) for ID3v2.3 full Unicode support
         tags.add(TIT2(encoding=1, text=sanitize_text(track.get("title", ""))))
         tags.add(TPE1(encoding=1, text=sanitize_text(track.get("artist", ""))))
         if track.get("album"):
@@ -580,7 +576,6 @@ def tag_mp3(filepath: str, track: dict, cover_url: str = None) -> None:
         if track.get("genre"):
             tags.add(TCON(encoding=1, text=str(track["genre"])))
 
-        # Download & normalize cover art to clean baseline JPEG via Pillow
         if cover_url:
             try:
                 resp = requests.get(cover_url, headers=HEADERS, timeout=12)
@@ -591,7 +586,7 @@ def tag_mp3(filepath: str, track: dict, cover_url: str = None) -> None:
                             APIC(
                                 encoding=0,
                                 mime="image/jpeg",
-                                type=3,  # Front cover
+                                type=3,
                                 desc="",
                                 data=jpeg_bytes,
                             )
@@ -605,7 +600,8 @@ def tag_mp3(filepath: str, track: dict, cover_url: str = None) -> None:
 
 
 def _process_single_track(item: tuple, download_dir: str, default_cover: str, progress_callback) -> str:
-    """Helper worker function for parallel thread execution with automatic retry."""
+    """Helper worker function for parallel thread execution with automatic retry and memory management."""
+    import gc
     idx, total, track = item
     status = {
         "current": idx + 1,
@@ -620,11 +616,14 @@ def _process_single_track(item: tuple, download_dir: str, default_cover: str, pr
         progress_callback(status)
 
     last_error = None
-    for attempt in range(3):  # Automatic retry up to 3 times on connection timeouts
+    for attempt in range(3):
         try:
             mp3_path, yt_thumb = search_and_download(track, download_dir)
             specific_cover = get_song_specific_cover(track, yt_thumbnail_url=yt_thumb, default_cover_url=default_cover)
             tag_mp3(mp3_path, track, cover_url=specific_cover)
+
+            # Explicit garbage collection to free image buffers and memory on Render
+            gc.collect()
 
             status["status"] = "done"
             status["cover_url"] = specific_cover
@@ -647,11 +646,11 @@ def download_playlist(
     playlist_url: str,
     base_download_dir: str,
     progress_callback=None,
-    max_workers: int = 3,
+    max_workers: int = 2,
 ) -> tuple:
     """
-    High-speed parallel pipeline with automatic retries:
-    fetch playlist → download 5 tracks concurrently in parallel → tag with song-specific JPEG artwork → zip.
+    High-speed parallel pipeline with automatic retries and cloud memory optimization:
+    fetch playlist → download tracks concurrently → tag with song-specific JPEG artwork → zip.
     """
     playlist_data = fetch_playlist(playlist_url)
     session_id = str(uuid.uuid4())[:8]
@@ -666,7 +665,6 @@ def download_playlist(
     downloaded_files = []
     items = [(i, total, track) for i, track in enumerate(tracks)]
 
-    # Parallel download with 5 concurrent threads
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_item = {
             executor.submit(_process_single_track, item, download_dir, default_cover, progress_callback): item
@@ -692,3 +690,4 @@ def download_playlist(
     shutil.rmtree(download_dir, ignore_errors=True)
 
     return zip_path, zip_filename, playlist_data
+
