@@ -201,7 +201,7 @@ def start_download():
             def progress_cb(status):
                 queue.put(json.dumps(status))
 
-            zip_path, zip_filename, _ = download_playlist(url, DOWNLOAD_DIR, progress_cb, max_workers=8)
+            zip_path, zip_filename, _ = download_playlist(url, DOWNLOAD_DIR, progress_cb, max_workers=5)
             download_sessions[session_id]["zip_path"] = zip_path
             download_sessions[session_id]["zip_filename"] = zip_filename
             download_sessions[session_id]["status"] = "complete"
