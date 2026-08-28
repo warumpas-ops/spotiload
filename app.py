@@ -21,7 +21,7 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 tmpl_dir = os.path.join(base_dir, "templates")
 stat_dir = os.path.join(base_dir, "static")
 
-app = Flask(__name__, template_folder=tmpl_dir, static_folder=stat_dir)
+app = Flask(__name__, template_folder=tmpl_dir, static_folder=None)
 
 app.jinja_loader = ChoiceLoader([
     FileSystemLoader(tmpl_dir),
@@ -38,7 +38,6 @@ download_sessions = {}
 
 @app.route("/")
 def index():
-    base_dir = os.path.dirname(os.path.abspath(__file__))
     candidates = [
         os.path.join(base_dir, "templates", "index.html"),
         os.path.join(base_dir, "index.html"),
@@ -46,7 +45,7 @@ def index():
         os.path.join(base_dir, "src", "index.html"),
     ]
     for path in candidates:
-        if os.path.exists(path):
+        if os.path.exists(path) and os.path.isfile(path):
             return send_file(path)
     for root, dirs, files in os.walk(base_dir):
         if "index.html" in files:
@@ -56,16 +55,18 @@ def index():
 
 @app.route("/static/<path:filename>")
 def custom_static(filename):
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    target = os.path.basename(filename)
     candidates = [
-        os.path.join(base_dir, "static", filename),
+        os.path.join(base_dir, target),
         os.path.join(base_dir, filename),
-        os.path.join(base_dir, "src", "static", filename),
+        os.path.join(base_dir, "static", filename),
+        os.path.join(base_dir, "static", "js", target),
+        os.path.join(base_dir, "static", "css", target),
+        os.path.join(base_dir, "static", "images", target),
     ]
     for path in candidates:
-        if os.path.exists(path):
+        if os.path.exists(path) and os.path.isfile(path):
             return send_file(path)
-    target = os.path.basename(filename)
     for root, dirs, files in os.walk(base_dir):
         if target in files:
             return send_file(os.path.join(root, target))
@@ -74,11 +75,10 @@ def custom_static(filename):
 
 @app.route("/<path:filename>")
 def serve_root_files(filename):
-    base_dir = os.path.dirname(os.path.abspath(__file__))
     target = os.path.basename(filename)
     candidates = [
-        os.path.join(base_dir, filename),
         os.path.join(base_dir, target),
+        os.path.join(base_dir, filename),
         os.path.join(base_dir, "static", filename),
     ]
     for path in candidates:
