@@ -472,20 +472,20 @@ def search_and_download(track: dict, output_dir: str) -> tuple:
             {
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "mp3",
-                "preferredquality": "320",
+                "preferredquality": "192",
             }
         ],
         "quiet": True,
         "no_warnings": True,
         "default_search": "ytsearch1",
         "noplaylist": True,
-        "socket_timeout": 20,
-        "retries": 10,
-        "fragment_retries": 10,
-        "file_access_retries": 5,
+        "socket_timeout": 15,
+        "retries": 5,
+        "fragment_retries": 5,
+        "file_access_retries": 3,
         "extractor_args": {
             "youtube": {
-                "player_client": ["mweb", "ios", "android"],
+                "player_client": ["mweb", "ios"],
             }
         },
         "http_headers": HEADERS,
@@ -608,7 +608,7 @@ def download_playlist(
     playlist_url: str,
     base_download_dir: str,
     progress_callback=None,
-    max_workers: int = 5,
+    max_workers: int = 3,
 ) -> tuple:
     """
     High-speed parallel pipeline with automatic retries:
