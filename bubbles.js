@@ -5,24 +5,17 @@
  * 2. Swaying Multi-Layered Algae / Sea Kelp Forest rising from the bottom with fluid ocean current physics
  * 3. SpongeBob Cartoon Rising Bubbles with glossy highlights and side-to-side wobble
  * 4. 12 3D Liquid Glass Bubbles with mouse push physics
- * 5. 5 Organic Tropical Aquarium Fish with swimming and peeking side-eye behaviors
+ * 5. Original Frutiger Aero Organic Tropical Fish with 3D Radial Body Gradients, Fluttering Side Fins, Stripes, Glass Highlights & Side-Eye Tracking
  */
 
 // --- 1. SpongeBob 5-Petal Flower Clouds (Bikini Bottom Sky/Sea Flowers) ---
 const FLOWER_PALETTES = [
-    // Pink
     { fill: "rgba(255, 112, 184, 0.55)", stroke: "rgba(255, 60, 150, 0.9)", ring: "rgba(255, 60, 150, 0.9)" },
-    // Lavender Purple
     { fill: "rgba(180, 95, 250, 0.55)", stroke: "rgba(147, 51, 234, 0.9)", ring: "rgba(147, 51, 234, 0.9)" },
-    // Royal Blue
     { fill: "rgba(59, 130, 246, 0.55)", stroke: "rgba(30, 64, 175, 0.9)", ring: "rgba(30, 64, 175, 0.9)" },
-    // Lime Chartreuse
     { fill: "rgba(132, 204, 22, 0.55)", stroke: "rgba(77, 124, 15, 0.9)", ring: "rgba(77, 124, 15, 0.9)" },
-    // Tangerine Orange
     { fill: "rgba(251, 146, 60, 0.55)", stroke: "rgba(217, 70, 0, 0.9)", ring: "rgba(217, 70, 0, 0.9)" },
-    // Tropical Aqua Cyan
     { fill: "rgba(6, 182, 212, 0.55)", stroke: "rgba(8, 145, 178, 0.9)", ring: "rgba(8, 145, 178, 0.9)" },
-    // Sunny Yellow
     { fill: "rgba(250, 204, 21, 0.55)", stroke: "rgba(202, 138, 4, 0.9)", ring: "rgba(202, 138, 4, 0.9)" }
 ];
 
@@ -32,7 +25,7 @@ class SpongeBobFlower {
     }
 
     reset(w, h, initial = false) {
-        this.radius = Math.random() * 45 + 38; // Radius of petals (38px to 83px)
+        this.radius = Math.random() * 45 + 38;
         this.innerRadius = this.radius * 0.35;
         this.x = initial ? Math.random() * w : (Math.random() > 0.5 ? -this.radius * 2 : w + this.radius * 2);
         this.y = Math.random() * (h * 0.85) + 30;
@@ -53,7 +46,6 @@ class SpongeBobFlower {
         this.angle += this.rotSpeed;
         this.bobPhase += this.bobSpeed;
 
-        // Wrap around screen edges
         if (this.x < -this.radius * 3) this.x = w + this.radius * 2;
         if (this.x > w + this.radius * 3) this.x = -this.radius * 2;
         if (this.y < -this.radius * 2) this.y = h + this.radius;
@@ -77,15 +69,11 @@ class SpongeBobFlower {
             const nextTheta = ((i + 1) * 2 * Math.PI) / petals;
             const midTheta = theta + Math.PI / petals;
 
-            // Inner start point
             const x1 = Math.cos(theta) * r;
             const y1 = Math.sin(theta) * r;
-
-            // Outer bulbous petal tip
             const tipX = Math.cos(midTheta) * R;
             const tipY = Math.sin(midTheta) * R;
 
-            // Control points for curvy wavy SpongeBob flower lobes
             const cp1X = Math.cos(theta + 0.25) * (R * 0.75);
             const cp1Y = Math.sin(theta + 0.25) * (R * 0.75);
             const cp2X = Math.cos(midTheta - 0.3) * (R * 1.15);
@@ -105,18 +93,15 @@ class SpongeBobFlower {
         }
         ctx.closePath();
 
-        // Fill with soft tropical color
         ctx.fillStyle = this.palette.fill;
         ctx.fill();
 
-        // Outline with bold vibrant stroke
         ctx.lineWidth = 4.5;
         ctx.lineJoin = "round";
         ctx.lineCap = "round";
         ctx.strokeStyle = this.palette.stroke;
         ctx.stroke();
 
-        // Center ring / eyelet
         ctx.beginPath();
         ctx.arc(0, 0, r * 0.48, 0, Math.PI * 2);
         ctx.fillStyle = this.palette.fill;
@@ -131,18 +116,18 @@ class SpongeBobFlower {
 
 // --- 2. Swaying Algae / Sea Kelp Forest from the Bottom ---
 const ALGAE_COLORS = [
-    { base: "#047857", mid: "#059669", tip: "#10B981", stroke: "rgba(5, 150, 105, 0.45)" }, // Emerald
-    { base: "#065F46", mid: "#047857", tip: "#34D399", stroke: "rgba(52, 211, 153, 0.45)" }, // Bright Mint
-    { base: "#0F766E", mid: "#0D9488", tip: "#14B8A6", stroke: "rgba(20, 184, 166, 0.45)" }, // Marine Teal
-    { base: "#831843", mid: "#BE185D", tip: "#F472B6", stroke: "rgba(244, 114, 182, 0.45)" }, // Coral Magenta
-    { base: "#78350F", mid: "#B45309", tip: "#FBBF24", stroke: "rgba(251, 191, 36, 0.45)" }  // Amber Kelp
+    { base: "#047857", mid: "#059669", tip: "#10B981", stroke: "rgba(5, 150, 105, 0.45)" },
+    { base: "#065F46", mid: "#047857", tip: "#34D399", stroke: "rgba(52, 211, 153, 0.45)" },
+    { base: "#0F766E", mid: "#0D9488", tip: "#14B8A6", stroke: "rgba(20, 184, 166, 0.45)" },
+    { base: "#831843", mid: "#BE185D", tip: "#F472B6", stroke: "rgba(244, 114, 182, 0.45)" },
+    { base: "#78350F", mid: "#B45309", tip: "#FBBF24", stroke: "rgba(251, 191, 36, 0.45)" }
 ];
 
 class SeaAlgaeStalk {
     constructor(x, height, layer = 0) {
         this.baseX = x;
         this.height = height;
-        this.layer = layer; // 0 = back, 1 = mid, 2 = front
+        this.layer = layer;
         this.segments = 12;
         this.phase = Math.random() * Math.PI * 2;
         this.freq = Math.random() * 0.02 + 0.015;
@@ -153,7 +138,6 @@ class SeaAlgaeStalk {
     }
 
     update(time, mouse, canvasHeight) {
-        // Interactive mouse / touch avoidance
         if (mouse.x !== null && mouse.y !== null) {
             const dy = canvasHeight - mouse.y;
             if (dy < this.height + 60) {
@@ -186,21 +170,17 @@ class SeaAlgaeStalk {
             points.push({ x, y });
         }
 
-        // Draw leafy ribbon with gradient
         ctx.beginPath();
         ctx.moveTo(points[0].x - this.width * 0.5, points[0].y);
 
-        // Left side curve
         for (let i = 1; i < points.length; i++) {
             const w = this.width * (1 - (i / points.length) * 0.8);
             ctx.lineTo(points[i].x - w * 0.5, points[i].y);
         }
 
-        // Tip rounded point
         const tip = points[points.length - 1];
         ctx.lineTo(tip.x, tip.y - 10);
 
-        // Right side curve
         for (let i = points.length - 1; i >= 1; i--) {
             const w = this.width * (1 - (i / points.length) * 0.8);
             ctx.lineTo(points[i].x + w * 0.5, points[i].y);
@@ -233,7 +213,7 @@ class SpongeBobRisingBubble {
     }
 
     reset(w, h, initial = false) {
-        this.radius = Math.random() * 16 + 8; // 8px to 24px
+        this.radius = Math.random() * 16 + 8;
         this.baseX = Math.random() * w;
         this.x = this.baseX;
         this.y = initial ? Math.random() * h : h + Math.random() * 50 + 20;
@@ -258,7 +238,6 @@ class SpongeBobRisingBubble {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // Bubble main translucent sphere
         ctx.beginPath();
         ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
         const grad = ctx.createRadialGradient(
@@ -273,7 +252,6 @@ class SpongeBobRisingBubble {
         ctx.fillStyle = grad;
         ctx.fill();
 
-        // SpongeBob cartoon white glossy highlight (top-left oval)
         ctx.beginPath();
         ctx.ellipse(
             -this.radius * 0.35,
@@ -287,13 +265,11 @@ class SpongeBobRisingBubble {
         ctx.fillStyle = `rgba(255, 255, 255, ${this.alpha * 0.95})`;
         ctx.fill();
 
-        // Secondary subtle rim highlight
         ctx.beginPath();
         ctx.arc(this.radius * 0.25, this.radius * 0.25, this.radius * 0.15, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(255, 255, 255, ${this.alpha * 0.55})`;
         ctx.fill();
 
-        // Outer crisp rim stroke
         ctx.lineWidth = 1.2;
         ctx.strokeStyle = `rgba(255, 255, 255, ${this.alpha * 0.85})`;
         ctx.stroke();
@@ -413,8 +389,9 @@ class LiquidBubble {
     }
 }
 
-// --- 5. Organic Tropical Aquarium Fish ---
+// --- 5. Original Classic Frutiger Aero Tropical Fish ---
 const FISH_THEMES = [
+    // 1. Classic Orange Clownfish
     {
         shadow: "rgba(255, 100, 0, 0.55)",
         bodyStops: ["#FFFF77", "#FF9900", "#FF3300", "#CC0000"],
@@ -422,6 +399,7 @@ const FISH_THEMES = [
         dorsal: "rgba(255, 90, 0, 0.9)",
         stripe: "rgba(255, 255, 255, 0.95)",
     },
+    // 2. Electric Cyan Blue Tang
     {
         shadow: "rgba(0, 200, 255, 0.6)",
         bodyStops: ["#88FFFF", "#00CCFF", "#0055FF", "#001199"],
@@ -429,6 +407,7 @@ const FISH_THEMES = [
         dorsal: "rgba(0, 180, 255, 0.9)",
         stripe: "rgba(0, 255, 204, 0.9)",
     },
+    // 3. Lime Emerald Green Fish
     {
         shadow: "rgba(0, 255, 120, 0.55)",
         bodyStops: ["#CCFF99", "#00FF88", "#00B050", "#005522"],
@@ -436,6 +415,7 @@ const FISH_THEMES = [
         dorsal: "rgba(0, 230, 118, 0.9)",
         stripe: "rgba(255, 255, 255, 0.95)",
     },
+    // 4. Magenta Violet Fairy Basslet
     {
         shadow: "rgba(255, 0, 150, 0.55)",
         bodyStops: ["#FFCCFF", "#FF00AA", "#9900CC", "#440066"],
@@ -443,6 +423,7 @@ const FISH_THEMES = [
         dorsal: "rgba(255, 0, 180, 0.9)",
         stripe: "rgba(255, 220, 255, 0.95)",
     },
+    // 5. Sunshine Yellow Tang
     {
         shadow: "rgba(255, 200, 0, 0.6)",
         bodyStops: ["#FFFFFF", "#FFEE00", "#FF8800", "#DD4400"],
@@ -468,10 +449,8 @@ class OrganicWigglingFish {
         this.peekSide = themeIndex % 2 === 0 ? "left" : "right";
         this.peekRatioY = 0.18 + (themeIndex * 0.17);
 
-        this.pupilOffsetX = 0;
-        this.pupilOffsetY = 0;
-        this.eyeRadius = 4.8;
-        this.pupilRadius = 2.4;
+        this.eyeRadius = 5.5;
+        this.pupilRadius = 2.6;
     }
 
     update(w, h, bubbles, otherFishes, mouse, playlistActive) {
@@ -599,103 +578,128 @@ class OrganicWigglingFish {
 
         const wave1 = Math.sin(this.phase) * 6.5;
         const wave2 = Math.sin(this.phase - 0.7) * 11.5;
-        const waveTail = Math.sin(this.phase - 1.4) * 19.0;
+        const wave3 = Math.sin(this.phase - 1.4) * 18.0;
 
-        // Tail Fin
+        // 1. Classic Translucent Dual-Fin Fish Tail with White Rib Rays
+        ctx.save();
         ctx.beginPath();
-        ctx.moveTo(-this.length * 0.45, wave2);
-        ctx.bezierCurveTo(
-            -this.length * 0.8, wave2 + 10,
-            -this.length * 1.1, waveTail + 20,
-            -this.length * 1.35, waveTail + 14
-        );
-        ctx.bezierCurveTo(
-            -this.length * 1.15, waveTail,
-            -this.length * 1.35, waveTail - 14,
-            -this.length * 1.1, waveTail - 20
-        );
-        ctx.bezierCurveTo(
-            -this.length * 0.8, wave2 - 10,
-            -this.length * 0.45, wave2,
-            -this.length * 0.45, wave2
-        );
-        ctx.closePath();
+        ctx.moveTo(-this.length * 0.32, wave2);
+        ctx.quadraticCurveTo(-this.length * 0.65 + wave2 * 0.5, -this.length * 0.32 + wave3, -this.length * 1.0, wave3 - this.length * 0.39);
+        ctx.quadraticCurveTo(-this.length * 0.8 + wave3 * 0.5, wave3, -this.length * 1.0, wave3 + this.length * 0.39);
+        ctx.quadraticCurveTo(-this.length * 0.65 + wave2 * 0.5, this.length * 0.32 + wave3, -this.length * 0.32, wave2);
 
-        const tailGrad = ctx.createLinearGradient(-this.length * 0.45, 0, -this.length * 1.35, waveTail);
+        const tailGrad = ctx.createLinearGradient(-this.length * 1.0, 0, -this.length * 0.32, 0);
         tailGrad.addColorStop(0, this.theme.tailStops[0]);
         tailGrad.addColorStop(0.5, this.theme.tailStops[1]);
         tailGrad.addColorStop(1, this.theme.tailStops[2]);
         ctx.fillStyle = tailGrad;
         ctx.fill();
-
-        // Dorsal Top Fin
-        ctx.beginPath();
-        ctx.moveTo(-this.length * 0.1, -this.length * 0.28);
-        ctx.quadraticCurveTo(
-            -this.length * 0.35, -this.length * 0.65,
-            -this.length * 0.55, -this.length * 0.15 + (wave2 * 0.4)
-        );
-        ctx.quadraticCurveTo(
-            -this.length * 0.3, -this.length * 0.22,
-            -this.length * 0.1, -this.length * 0.28
-        );
-        ctx.fillStyle = this.theme.dorsal;
-        ctx.fill();
-
-        // Fish Body
-        ctx.beginPath();
-        ctx.moveTo(this.length * 0.75, 0);
-        ctx.bezierCurveTo(
-            this.length * 0.4, -this.length * 0.38,
-            -this.length * 0.1, -this.length * 0.34,
-            -this.length * 0.45, wave2
-        );
-        ctx.bezierCurveTo(
-            -this.length * 0.1, this.length * 0.34,
-            this.length * 0.4, this.length * 0.38,
-            this.length * 0.75, 0
-        );
-        ctx.closePath();
-
-        const bodyGrad = ctx.createLinearGradient(this.length * 0.75, 0, -this.length * 0.45, wave2);
-        bodyGrad.addColorStop(0, this.theme.bodyStops[0]);
-        bodyGrad.addColorStop(0.35, this.theme.bodyStops[1]);
-        bodyGrad.addColorStop(0.75, this.theme.bodyStops[2]);
-        bodyGrad.addColorStop(1, this.theme.bodyStops[3]);
-        ctx.fillStyle = bodyGrad;
-        ctx.fill();
-
-        // Decorative Stripe
-        ctx.beginPath();
-        ctx.moveTo(this.length * 0.15, -this.length * 0.34);
-        ctx.quadraticCurveTo(
-            this.length * 0.05 + wave1 * 0.3, 0,
-            this.length * 0.12, this.length * 0.34
-        );
-        ctx.lineWidth = 3.5;
-        ctx.strokeStyle = this.theme.stripe;
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
         ctx.stroke();
 
-        // Fish Eye
-        const eyeX = this.length * 0.42;
-        const eyeY = -this.length * 0.12;
+        ctx.beginPath();
+        ctx.moveTo(-this.length * 0.32, wave2); ctx.lineTo(-this.length * 0.95, wave3 - this.length * 0.26);
+        ctx.moveTo(-this.length * 0.32, wave2); ctx.lineTo(-this.length * 0.98, wave3);
+        ctx.moveTo(-this.length * 0.32, wave2); ctx.lineTo(-this.length * 0.95, wave3 + this.length * 0.26);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.restore();
 
+        // 2. Dorsal Flowing Top Fin
+        ctx.beginPath();
+        ctx.moveTo(this.length * 0.32, -this.length * 0.3);
+        ctx.quadraticCurveTo(0, -this.length * 0.7 + wave1 * 0.5, -this.length * 0.32, -this.length * 0.26 + wave2);
+        ctx.quadraticCurveTo(0, -this.length * 0.22, this.length * 0.32, -this.length * 0.3);
+        ctx.fillStyle = this.theme.dorsal;
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+        ctx.stroke();
+
+        // 3. Smooth Organic Fish Body with 3D Radial Depth
+        ctx.beginPath();
+        ctx.moveTo(this.length * 0.78, 0);
+        ctx.bezierCurveTo(this.length * 0.54, -this.length * 0.43, -this.length * 0.1, -this.length * 0.43 + wave1, -this.length * 0.32, wave2);
+        ctx.bezierCurveTo(-this.length * 0.1, this.length * 0.43 + wave1, this.length * 0.54, this.length * 0.43, this.length * 0.78, 0);
+
+        const bodyGrad = ctx.createRadialGradient(
+            this.length * 0.32, -this.length * 0.1, 4,
+            0, 0, this.length
+        );
+        bodyGrad.addColorStop(0, this.theme.bodyStops[0]);
+        bodyGrad.addColorStop(0.35, this.theme.bodyStops[1]);
+        bodyGrad.addColorStop(0.8, this.theme.bodyStops[2]);
+        bodyGrad.addColorStop(1, this.theme.bodyStops[3]);
+
+        ctx.fillStyle = bodyGrad;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.95)";
+        ctx.stroke();
+
+        // 4. White Curved Body Stripes
+        ctx.fillStyle = this.theme.stripe;
+        ctx.beginPath();
+        ctx.ellipse(this.length * 0.17, wave1 * 0.2, this.length * 0.11, this.length * 0.37, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.ellipse(-this.length * 0.13, wave2 * 0.3, this.length * 0.09, this.length * 0.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 5. Side Fluttering Fin
+        const finAngle = Math.sin(this.phase * 1.5) * 0.35;
+        ctx.save();
+        ctx.translate(this.length * 0.26, this.length * 0.13);
+        ctx.rotate(0.4 + finAngle);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, this.length * 0.22, this.length * 0.11, 0, 0, Math.PI * 2);
+        ctx.fillStyle = this.theme.dorsal;
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+        ctx.stroke();
+        ctx.restore();
+
+        // 6. Side-Eye Tracking Big Googly Eye
         ctx.shadowBlur = 0;
+        const eyeX = this.length * 0.52;
+        const eyeY = -this.length * 0.11;
+
+        const targetEyeRadius = this.isPeeking ? 12.0 : 5.5;
+        const targetPupilRadius = this.isPeeking ? 5.2 : 2.6;
+
+        this.eyeRadius += (targetEyeRadius - this.eyeRadius) * 0.18;
+        this.pupilRadius += (targetPupilRadius - this.pupilRadius) * 0.18;
+
+        // White Sclera
         ctx.beginPath();
         ctx.arc(eyeX, eyeY, this.eyeRadius, 0, Math.PI * 2);
         ctx.fillStyle = "#FFFFFF";
         ctx.fill();
         ctx.lineWidth = 1.2;
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.45)";
+        ctx.strokeStyle = "rgba(0,0,0,0.35)";
         ctx.stroke();
 
-        // Pupil tracking
-        let pupilOffsetX = 0.8;
+        let pupilOffsetX = 0;
         let pupilOffsetY = 0;
 
         if (this.isPeeking) {
-            pupilOffsetX = this.peekSide === "left" ? this.pupilRadius * 0.75 : -this.pupilRadius * 0.75;
-            pupilOffsetY = (Math.sin(this.phase * 0.5)) * 0.8;
+            const targetX = mouse.x !== null ? mouse.x : w / 2;
+            const targetY = mouse.y !== null ? mouse.y : h / 2;
+            const worldEyeX = this.x + Math.cos(angle) * eyeX - Math.sin(angle) * eyeY;
+            const worldEyeY = this.y + Math.sin(angle) * eyeX + Math.cos(angle) * eyeY;
+
+            const pdx = targetX - worldEyeX;
+            const pdy = targetY - worldEyeY;
+            const pdist = Math.hypot(pdx, pdy);
+
+            if (pdist > 0) {
+                const eyeAngle = Math.atan2(pdy, pdx) - angle;
+                const maxOffset = this.eyeRadius * 0.52;
+                pupilOffsetX = Math.cos(eyeAngle) * maxOffset;
+                pupilOffsetY = Math.sin(eyeAngle) * maxOffset;
+            }
         } else if (mouse.x !== null && mouse.y !== null) {
             const dx = mouse.x - this.x;
             const dy = mouse.y - this.y;
@@ -705,15 +709,24 @@ class OrganicWigglingFish {
             pupilOffsetY = Math.sin(relativeAngle) * (this.eyeRadius - this.pupilRadius - 0.6);
         }
 
+        // Black Pupil
         ctx.beginPath();
         ctx.arc(eyeX + pupilOffsetX, eyeY + pupilOffsetY, this.pupilRadius, 0, Math.PI * 2);
         ctx.fillStyle = "#000000";
         ctx.fill();
 
+        // Eye Catchlight Sparkle Highlight
         ctx.beginPath();
         ctx.arc(eyeX + pupilOffsetX + 1.6, eyeY + pupilOffsetY - 1.6, this.pupilRadius * 0.4, 0, Math.PI * 2);
         ctx.fillStyle = "#FFFFFF";
         ctx.fill();
+
+        // 7. Frutiger Glass Top Highlight
+        ctx.beginPath();
+        ctx.bezierCurveTo(this.length * 0.6, -this.length * 0.17, -this.length * 0.1, -this.length * 0.3, -this.length * 0.26, wave2 - 4);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.65)";
+        ctx.stroke();
 
         ctx.restore();
     }
@@ -764,20 +777,20 @@ document.addEventListener("DOMContentLoaded", () => {
         const count = Math.floor(width / 45) + 6;
         for (let i = 0; i < count; i++) {
             const x = (i / count) * (width + 60) - 30 + (Math.random() - 0.5) * 25;
-            const h = Math.random() * 220 + 130; // 130px to 350px tall
+            const h = Math.random() * 220 + 130;
             const layer = i % 3;
             algaeStalks.push(new SeaAlgaeStalk(x, h, layer));
         }
     }
     initAlgae();
 
-    // 3. SpongeBob Cartoon Rising Bubbles (20 stream bubbles)
+    // 3. SpongeBob Cartoon Rising Bubbles
     const risingBubbles = Array.from({ length: 22 }, () => new SpongeBobRisingBubble(width, height, true));
 
     // 4. 10 3D Liquid Glass Bubbles
     const glassBubbles = Array.from({ length: 10 }, () => new LiquidBubble(width, height));
 
-    // 5. 5 Organic Tropical Aquarium Fish
+    // 5. 5 Original Classic Frutiger Aero Tropical Fish
     const fishes = Array.from({ length: 5 }, (_, i) => new OrganicWigglingFish(width, height, i));
 
     let time = 0;
@@ -789,13 +802,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const playlistElem = document.getElementById("playlist-section");
         const isPlaylistLoaded = playlistElem && !playlistElem.classList.contains("hidden");
 
-        // 1. Draw SpongeBob Flower Clouds (deepest background layer)
+        // 1. SpongeBob Flower Clouds
         for (let flower of flowers) {
             flower.update(width, height);
             flower.draw(ctx);
         }
 
-        // 2. Draw Back Layer Algae
+        // 2. Back Layer Algae
         for (let stalk of algaeStalks) {
             if (stalk.layer === 0) {
                 stalk.update(time, mouse, height);
@@ -803,13 +816,13 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
-        // 3. Draw Rising SpongeBob Bubbles
+        // 3. Rising SpongeBob Bubbles
         for (let b of risingBubbles) {
             b.update(width, height);
             b.draw(ctx);
         }
 
-        // 4. Draw Mid Layer Algae
+        // 4. Mid Layer Algae
         for (let stalk of algaeStalks) {
             if (stalk.layer === 1) {
                 stalk.update(time, mouse, height);
@@ -817,7 +830,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
-        // 5. Draw 3D Liquid Glass Bubbles
+        // 5. 3D Liquid Glass Bubbles
         for (let i = 0; i < glassBubbles.length; i++) {
             const b = glassBubbles[i];
             b.update(width, height, mouse);
@@ -853,13 +866,13 @@ document.addEventListener("DOMContentLoaded", () => {
             b.draw(ctx);
         }
 
-        // 6. Draw Tropical Aquarium Fish
+        // 6. Original Classic Tropical Fish
         for (let fish of fishes) {
             fish.update(width, height, glassBubbles, fishes, mouse, isPlaylistLoaded);
             fish.draw(ctx, mouse, width, height);
         }
 
-        // 7. Draw Front Layer Algae
+        // 7. Front Layer Algae
         for (let stalk of algaeStalks) {
             if (stalk.layer === 2) {
                 stalk.update(time, mouse, height);
