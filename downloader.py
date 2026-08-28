@@ -451,62 +451,38 @@ def get_song_specific_cover(track: dict, yt_thumbnail_url: str = None, default_c
 
 def search_and_download(track: dict, output_dir: str) -> tuple:
     """
-    Search YouTube for a track, download as audio, and return (audio_path, yt_thumbnail_url).
-    Uses m4a/mp3 format that doesn't require FFmpeg postprocessing on Render.
+    Search YouTube for a track, download as MP3, and return (mp3_path, yt_thumbnail_url).
     """
     search_query = f"{track['title']} {track['artist']} audio"
     safe_filename = re.sub(r'[<>:"/\\|?*]', "_", f"{track['artist']} - {track['title']}")
     safe_filename = safe_filename[:200]
     output_path = os.path.join(output_dir, safe_filename)
 
-    # Check if FFmpeg is available
-    import shutil as _shutil
-    has_ffmpeg = _shutil.which("ffmpeg") is not None
-
-    if has_ffmpeg:
-        ydl_opts = {
-            "format": "bestaudio/best",
-            "outtmpl": output_path + ".%(ext)s",
-            "postprocessors": [
-                {
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "mp3",
-                    "preferredquality": "192",
-                }
-            ],
-            "quiet": True,
-            "no_warnings": True,
-            "default_search": "ytsearch1",
-            "noplaylist": True,
-            "socket_timeout": 30,
-            "retries": 5,
-            "fragment_retries": 5,
-            "extractor_args": {
-                "youtube": {
-                    "player_client": ["mweb", "ios"],
-                }
-            },
-            "http_headers": HEADERS,
-        }
-    else:
-        # No FFmpeg: download best mp4a/m4a audio natively
-        ydl_opts = {
-            "format": "bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio",
-            "outtmpl": output_path + ".%(ext)s",
-            "quiet": True,
-            "no_warnings": True,
-            "default_search": "ytsearch1",
-            "noplaylist": True,
-            "socket_timeout": 30,
-            "retries": 5,
-            "fragment_retries": 5,
-            "extractor_args": {
-                "youtube": {
-                    "player_client": ["mweb", "ios"],
-                }
-            },
-            "http_headers": HEADERS,
-        }
+    ydl_opts = {
+        "format": "bestaudio/best",
+        "outtmpl": output_path + ".%(ext)s",
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "320",
+            }
+        ],
+        "quiet": True,
+        "no_warnings": True,
+        "default_search": "ytsearch1",
+        "noplaylist": True,
+        "socket_timeout": 20,
+        "retries": 10,
+        "fragment_retries": 10,
+        "file_access_retries": 5,
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["mweb", "ios", "android"],
+            }
+        },
+        "http_headers": HEADERS,
+    }
 
     yt_thumbnail = None
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -518,25 +494,17 @@ def search_and_download(track: dict, output_dir: str) -> tuple:
             else:
                 yt_thumbnail = info.get("thumbnail")
 
-    # Find the downloaded file (mp3, m4a, webm, or any audio)
-    audio_path = None
-    for ext in (".mp3", ".m4a", ".webm", ".opus", ".ogg"):
-        candidate = output_path + ext
-        if os.path.exists(candidate):
-            audio_path = candidate
-            break
-
-    if not audio_path:
-        # Search directory for any file matching the safe_filename prefix
+    mp3_path = output_path + ".mp3"
+    if not os.path.exists(mp3_path):
         for f in os.listdir(output_dir):
-            if f.startswith(safe_filename[:30]):
-                audio_path = os.path.join(output_dir, f)
+            if f.startswith(safe_filename) and f.endswith(".mp3"):
+                mp3_path = os.path.join(output_dir, f)
                 break
 
-    if not audio_path:
+    if not os.path.exists(mp3_path):
         raise FileNotFoundError(f"Download failed for: {track['title']}")
 
-    return audio_path, yt_thumbnail
+    return mp3_path, yt_thumbnail
 
 
 def tag_mp3(filepath: str, track: dict, cover_url: str = None) -> None:
