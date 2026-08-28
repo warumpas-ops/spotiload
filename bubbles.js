@@ -273,6 +273,28 @@ class OrganicWigglingFish {
                 this.vy = Math.sin(angle) * 5.0;
             }
         }
+
+        // Touch finger avoidance (mobile) — fish flee from each active finger
+        if (window._wfxTouches) {
+            const touchPoints = Object.values(window._wfxTouches);
+            for (const tp of touchPoints) {
+                const dx = this.x - tp.x;
+                const dy = this.y - tp.y;
+                const dist = Math.hypot(dx, dy);
+                if (dist < 160 && dist > 0) {
+                    const angle = Math.atan2(dy, dx);
+                    const force = (160 - dist) / 160;
+                    this.vx += Math.cos(angle) * 6.5 * force;
+                    this.vy += Math.sin(angle) * 6.5 * force;
+                    // Cap speed
+                    const spd = Math.hypot(this.vx, this.vy);
+                    if (spd > 8) {
+                        this.vx = (this.vx / spd) * 8;
+                        this.vy = (this.vy / spd) * 8;
+                    }
+                }
+            }
+        }
     }
 
     draw(ctx, mouse, w, h) {
