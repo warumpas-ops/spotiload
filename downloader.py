@@ -28,6 +28,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, TYER, TDRC, TRCK, TCON, APIC, ID3NoHeaderError
 
+try:
+    import static_ffmpeg
+    static_ffmpeg.add_paths()
+except Exception as e:
+    print(f"static_ffmpeg note: {e}")
+
+
 
 HEADERS = {
     "User-Agent": (
