@@ -246,18 +246,14 @@
     <script src="/static/js/wmp_player.js"></script>
     <script src="/static/js/app.js"></script>
     <script>
-      // Fallback loaders in case static/js path fails on some hosts
       (function() {
-        function scriptLoaded(src) {
-          return !!document.querySelector('script[src="' + src + '"]');
-        }
-        var fallbacks = [
-          ['/static/water_effects.js', '/water_effects.js'],
-          ['/static/bubbles.js', '/bubbles.js'],
-          ['/static/wmp_player.js', '/wmp_player.js'],
-          ['/static/app.js', '/app.js']
+        var needed = [
+          ['/static/js/water_effects.js', '/water_effects.js'],
+          ['/static/js/bubbles.js', '/bubbles.js'],
+          ['/static/js/wmp_player.js', '/wmp_player.js'],
+          ['/static/js/app.js', '/app.js']
         ];
-        fallbacks.forEach(function(pair) {
+        needed.forEach(function(pair) {
           if (!document.querySelector('script[src="' + pair[0] + '"]')) {
             var s = document.createElement('script');
             s.src = pair[1];
@@ -267,5 +263,5 @@
       })();
     </script>
 </body>
-
 </html>
+
