@@ -485,7 +485,7 @@ def search_and_download(track: dict, output_dir: str) -> tuple:
         "file_access_retries": 3,
         "extractor_args": {
             "youtube": {
-                "player_client": ["mweb", "ios"],
+                "player_client": ["android"],
             }
         },
         "http_headers": HEADERS,
