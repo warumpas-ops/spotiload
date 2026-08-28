@@ -241,27 +241,10 @@
         <p>Built with Flask, yt-dlp &amp; the Spotify API</p>
     </footer>
 
-    <script src="/static/js/water_effects.js"></script>
-    <script src="/static/js/bubbles.js"></script>
-    <script src="/static/js/wmp_player.js"></script>
-    <script src="/static/js/app.js"></script>
-    <script>
-      (function() {
-        var needed = [
-          ['/static/js/water_effects.js', '/water_effects.js'],
-          ['/static/js/bubbles.js', '/bubbles.js'],
-          ['/static/js/wmp_player.js', '/wmp_player.js'],
-          ['/static/js/app.js', '/app.js']
-        ];
-        needed.forEach(function(pair) {
-          if (!document.querySelector('script[src="' + pair[0] + '"]')) {
-            var s = document.createElement('script');
-            s.src = pair[1];
-            document.body.appendChild(s);
-          }
-        });
-      })();
-    </script>
+    <script src="/water_effects.js"></script>
+    <script src="/bubbles.js"></script>
+    <script src="/wmp_player.js"></script>
+    <script src="/app.js"></script>
 </body>
 </html>
 
