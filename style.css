@@ -740,3 +740,196 @@ main {
     font-size: 0.85rem;
     font-weight: 600;
 }
+
+/* ============================================
+   MOBILE SMARTPHONE OPTIMIZATIONS (<768px & <480px)
+   ============================================ */
+@media (max-width: 768px) {
+    main {
+        padding: 24px 16px 140px;
+    }
+
+    .hero {
+        margin-bottom: 28px;
+    }
+
+    .hero-badge {
+        font-size: 0.75rem;
+        padding: 6px 14px;
+        gap: 6px;
+    }
+
+    .hero-title-container {
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .pixel-cd-disc {
+        width: 64px;
+        height: 64px;
+    }
+
+    .hero-title {
+        font-size: 2.2rem;
+        text-align: center;
+        line-height: 1.15;
+    }
+
+    .hero-subtitle {
+        font-size: 0.95rem;
+        margin-bottom: 24px;
+        padding: 0 8px;
+    }
+
+    .input-wrapper {
+        padding: 6px 6px 6px 16px;
+    }
+
+    .input-wrapper input {
+        font-size: 16px; /* Prevents auto-zoom on iOS */
+    }
+
+    #fetch-btn {
+        padding: 10px 20px;
+        font-size: 0.9rem;
+    }
+
+    .playlist-section {
+        padding: 20px 14px;
+        border-radius: var(--radius-lg);
+    }
+
+    .playlist-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 16px;
+        align-items: center;
+    }
+
+    .playlist-cover {
+        width: 140px;
+        height: 140px;
+    }
+
+    .playlist-name {
+        font-size: 1.6rem;
+    }
+
+    .download-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 14px 20px;
+    }
+
+    .track-item {
+        padding: 10px 12px;
+        gap: 12px;
+        border-radius: var(--radius-sm);
+    }
+
+    .track-cover {
+        width: 44px;
+        height: 44px;
+    }
+
+    .track-title {
+        font-size: 0.9rem;
+        max-width: 160px;
+    }
+
+    .track-artist {
+        font-size: 0.78rem;
+        max-width: 160px;
+    }
+
+    .track-number {
+        font-size: 0.8rem;
+        width: 20px;
+    }
+
+    .track-actions {
+        gap: 8px;
+    }
+
+    .progress-card {
+        padding: 24px 16px;
+        border-radius: var(--radius-lg);
+    }
+
+    .progress-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 8px;
+    }
+
+    .progress-current-track {
+        flex-direction: column;
+        text-align: center;
+        gap: 10px;
+    }
+
+    .progress-current-cover {
+        width: 60px;
+        height: 60px;
+        margin: 0 auto;
+    }
+
+    .complete-card {
+        padding: 32px 16px;
+        border-radius: var(--radius-lg);
+    }
+
+    .complete-title {
+        font-size: 1.6rem;
+    }
+}
+
+@media (max-width: 480px) {
+    main {
+        padding: 16px 12px 140px;
+    }
+
+    .hero-title {
+        font-size: 1.9rem;
+    }
+
+    .hero-subtitle {
+        font-size: 0.88rem;
+    }
+
+    .input-wrapper {
+        flex-direction: column;
+        border-radius: var(--radius-lg);
+        padding: 12px;
+        gap: 10px;
+    }
+
+    .input-icon {
+        display: none;
+    }
+
+    .input-wrapper input {
+        width: 100%;
+        text-align: center;
+        padding: 6px 0;
+    }
+
+    #fetch-btn {
+        width: 100%;
+        padding: 12px;
+    }
+
+    .track-number {
+        display: none;
+    }
+
+    .track-title {
+        max-width: 130px;
+    }
+
+    .track-artist {
+        max-width: 130px;
+    }
+}
