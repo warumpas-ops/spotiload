@@ -11,9 +11,15 @@ import os
 import json
 import uuid
 import threading
-from queue import Queue
+try:
+    import static_ffmpeg
+    static_ffmpeg.add_paths()
+except Exception as e:
+    print(f"static_ffmpeg note: {e}")
+
 from flask import Flask, render_template, request, jsonify, Response, send_file
 from downloader import fetch_playlist, download_playlist, extract_playlist_id
+
 
 from jinja2 import ChoiceLoader, FileSystemLoader
 
