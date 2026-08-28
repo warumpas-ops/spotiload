@@ -1,10 +1,10 @@
 /**
- * spongebob_intro.js — Fullscreen SpongeBob Bubble Transition Intro with Chroma Keying & Sound Effect
+ * spongebob_intro.js — Instant Fullscreen SpongeBob Bubble Transition Intro
  * Features:
- * 1. Automatically plays on website load as an iconic intro transition
+ * 1. Preloads & plays immediately on page load with 0 delay
  * 2. Real-time Green Screen Chroma Keying on HTML5 Canvas (100% transparent background)
  * 3. Plays the classic SpongeBob bubble sound effect
- * 4. Smoothly reveals the website as the bubbles swirl and pop
+ * 4. Smoothly reveals the website as bubbles swirl and pop
  * 5. Replay button available in the top badge header
  */
 
@@ -13,8 +13,16 @@
 
     let hasPlayed = false;
 
+    // Pre-create and preload the video immediately
+    const preloadedVideo = document.createElement('video');
+    preloadedVideo.src = '/spongebob_bubble.mp4';
+    preloadedVideo.crossOrigin = 'anonymous';
+    preloadedVideo.playsInline = true;
+    preloadedVideo.preload = 'auto';
+    preloadedVideo.muted = false;
+    preloadedVideo.load();
+
     function playSpongeBobIntro() {
-        // Remove existing intro container if present
         const existing = document.getElementById('spongebob-intro-container');
         if (existing) existing.remove();
 
@@ -30,11 +38,13 @@
             align-items: center;
             justify-content: center;
             background: transparent;
-            transition: opacity 0.5s ease-out;
+            transition: opacity 0.4s ease-out;
         `;
 
         const canvas = document.createElement('canvas');
         canvas.id = 'spongebob-intro-canvas';
+        canvas.width = 1920;
+        canvas.height = 1080;
         canvas.style.cssText = `
             width: 100vw;
             height: 100vh;
@@ -44,18 +54,18 @@
         container.appendChild(canvas);
 
         const skipBtn = document.createElement('button');
-        skipBtn.textContent = 'Skip Intro ✕';
+        skipBtn.textContent = 'Skip ✕';
         skipBtn.style.cssText = `
             position: absolute;
-            top: 24px; right: 28px;
-            padding: 8px 16px;
+            top: 20px; right: 24px;
+            padding: 6px 14px;
             background: rgba(0, 0, 0, 0.45);
             backdrop-filter: blur(8px);
             color: #FFFFFF;
             border: 1.5px solid rgba(255, 255, 255, 0.7);
             border-radius: 20px;
             font-family: inherit;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             cursor: pointer;
             z-index: 10;
@@ -66,15 +76,18 @@
         skipBtn.onclick = () => { closeIntro(); };
         container.appendChild(skipBtn);
 
-        document.body.appendChild(container);
+        // Mount immediately to document
+        if (document.body) {
+            document.body.appendChild(container);
+        } else {
+            document.addEventListener('DOMContentLoaded', () => {
+                document.body.appendChild(container);
+            });
+        }
 
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        const video = document.createElement('video');
-        video.src = '/spongebob_bubble.mp4';
-        video.crossOrigin = 'anonymous';
-        video.playsInline = true;
-        video.preload = 'auto';
-        video.muted = false;
+        const video = preloadedVideo;
+        video.currentTime = 0;
 
         let animationFrameId = null;
         let isClosed = false;
@@ -87,12 +100,12 @@
             container.style.opacity = '0';
             setTimeout(() => {
                 container.remove();
-            }, 500);
+            }, 400);
         }
 
         video.addEventListener('loadedmetadata', () => {
-            canvas.width = video.videoWidth || 1920;
-            canvas.height = video.videoHeight || 1080;
+            if (video.videoWidth) canvas.width = video.videoWidth;
+            if (video.videoHeight) canvas.height = video.videoHeight;
         });
 
         function renderFrame() {
@@ -104,23 +117,21 @@
 
                 ctx.drawImage(video, 0, 0, w, h);
                 const frame = ctx.getImageData(0, 0, w, h);
-                const l = frame.data.length / 4;
+                const data = frame.data;
+                const l = data.length;
 
-                for (let i = 0; i < l; i++) {
-                    const r = frame.data[i * 4 + 0];
-                    const g = frame.data[i * 4 + 1];
-                    const b = frame.data[i * 4 + 2];
+                for (let i = 0; i < l; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
 
-                    // Chroma Key Green Screen removal:
-                    // Detect saturated green background (#00FE02 / #00FF00)
+                    // Chroma Key Green Screen removal (#00FE02 / #00FF00)
                     if (g > 85 && g > r * 1.38 && g > b * 1.38) {
-                        frame.data[i * 4 + 3] = 0; // Transparent
+                        data[i + 3] = 0; // Fully transparent
                     } else if (g > 70 && g > r * 1.15 && g > b * 1.15) {
-                        // Soft edge anti-aliasing / despill
                         const diff = g - Math.max(r, b);
-                        const alpha = Math.max(0, 255 - diff * 3.2);
-                        frame.data[i * 4 + 3] = alpha;
-                        frame.data[i * 4 + 1] = Math.max(r, b); // Green despill
+                        data[i + 3] = Math.max(0, 255 - diff * 3.2);
+                        data[i + 1] = Math.max(r, b); // Green despill
                     }
                 }
 
@@ -134,51 +145,58 @@
             }
         }
 
-        video.addEventListener('play', () => {
-            animationFrameId = requestAnimationFrame(renderFrame);
-        });
+        video.onplay = () => {
+            if (!animationFrameId) animationFrameId = requestAnimationFrame(renderFrame);
+        };
 
-        video.addEventListener('ended', () => {
+        video.onended = () => {
             closeIntro();
-        });
+        };
 
-        // Start video playback
+        // Start playback immediately
         const playPromise = video.play();
         if (playPromise !== undefined) {
             playPromise.then(() => {
-                // Video started playing with sound!
+                animationFrameId = requestAnimationFrame(renderFrame);
             }).catch(() => {
-                // Auto-play with audio blocked by browser: play muted and allow sound
+                // If audio autoplay blocked by browser policy, play muted with zero delay
                 video.muted = true;
-                video.play().catch(() => {
+                video.play().then(() => {
+                    animationFrameId = requestAnimationFrame(renderFrame);
+                }).catch(() => {
                     closeIntro();
                 });
             });
         }
 
-        // Safety fallback timer (video is 5.4s)
+        // Safety fallback timer
         setTimeout(() => {
             closeIntro();
-        }, 5800);
+        }, 5500);
     }
 
-    // Expose globally so user can replay anytime
     window.playSpongeBobBubbleIntro = playSpongeBobIntro;
 
-    // Run automatically on first page load
-    document.addEventListener('DOMContentLoaded', () => {
+    // Launch immediately upon script execution if body exists, otherwise on ready
+    function initInstantIntro() {
         if (!hasPlayed) {
             hasPlayed = true;
-            // Short 150ms delay for smooth DOM paint before intro
-            setTimeout(() => {
-                playSpongeBobIntro();
-            }, 150);
+            playSpongeBobIntro();
         }
+    }
 
-        // Add "🫧 Play Intro" button to hero badge
+    if (document.readyState === 'interactive' || document.readyState === 'complete') {
+        initInstantIntro();
+    } else {
+        document.addEventListener('DOMContentLoaded', initInstantIntro);
+    }
+
+    // Add "🫧 Play Intro" button to hero badge
+    document.addEventListener('DOMContentLoaded', () => {
         const badge = document.querySelector('.hero-badge');
-        if (badge) {
+        if (badge && !document.getElementById('btn-replay-bubble-intro')) {
             const introBtn = document.createElement('button');
+            introBtn.id = 'btn-replay-bubble-intro';
             introBtn.innerHTML = '🫧 Play Bubble Intro';
             introBtn.title = 'Replay SpongeBob Bubble Transition';
             introBtn.style.cssText = `
