@@ -5,6 +5,7 @@
 
 let currentPlaylistUrl = "";
 let currentSessionId = "";
+let currentPlaylistData = null;
 
 // ---------- Helpers ----------
 
@@ -103,10 +104,24 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchTrendingSongs();
 });
 
-// ---------- Render Playlist ----------
+// ---------- Render Playlist or Song ----------
 
 function renderPlaylist(data) {
-    // Header
+    currentPlaylistData = data;
+
+    // Update Header Label (SONG vs PLAYLIST)
+    const labelElem = document.getElementById("playlist-label");
+    const dlBtnText = document.getElementById("download-btn-text");
+
+    if (data.type === "track" || data.total_tracks === 1) {
+        if (labelElem) labelElem.textContent = "SONG";
+        if (dlBtnText) dlBtnText.textContent = "Download MP3";
+    } else {
+        if (labelElem) labelElem.textContent = "PLAYLIST";
+        if (dlBtnText) dlBtnText.textContent = `Download All (${data.total_tracks} tracks)`;
+    }
+
+    // Header metadata
     document.getElementById("playlist-cover").src = data.cover_url || "";
     document.getElementById("playlist-name").textContent = data.name;
     document.getElementById("playlist-meta").textContent =
@@ -149,6 +164,11 @@ function renderPlaylist(data) {
             <div class="track-meta-side">
                 <span class="track-status-badge"></span>
                 <span class="track-duration">${formatDuration(track.duration_ms)}</span>
+                <button class="track-dl-btn" id="single-dl-${i}" title="Download '${escapeHtml(track.title)}' as MP3" onclick="downloadSingleTrack(event, ${i})">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 4v12m0 0l-4-4m4 4l4-4M4 18h16" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
             </div>
             <div class="track-status">
                 <div class="mini-spinner"></div>
@@ -168,14 +188,87 @@ function renderPlaylist(data) {
     document.getElementById("playlist-section").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-// ---------- Start Download ----------
+// ---------- Download Individual Track Directly ----------
+
+async function downloadSingleTrack(event, index) {
+    if (event) {
+        event.stopPropagation();
+    }
+    if (!currentPlaylistData || !currentPlaylistData.tracks || !currentPlaylistData.tracks[index]) return;
+
+    const track = currentPlaylistData.tracks[index];
+    const btn = document.getElementById(`single-dl-${index}`);
+    if (!btn || btn.classList.contains("loading")) return;
+
+    const originalHtml = btn.innerHTML;
+    btn.classList.add("loading");
+    btn.innerHTML = `<div class="mini-spinner" style="display:inline-block;width:14px;height:14px;border-width:2px;border-top-color:#00FFCC;"></div>`;
+
+    try {
+        const res = await fetch("/api/download-single", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ track }),
+        });
+
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Download failed");
+        }
+
+        const blob = await res.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        const safeFilename = `${track.artist} - ${track.title}`.replace(/[<>:"/\\|?*]/g, "_") + ".mp3";
+        a.download = safeFilename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(blobUrl);
+
+        btn.classList.remove("loading");
+        btn.classList.add("success");
+        btn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M5 13l4 4L19 7" stroke="#00FFCC" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        `;
+
+        setTimeout(() => {
+            btn.classList.remove("success");
+            btn.innerHTML = originalHtml;
+        }, 3500);
+
+    } catch (err) {
+        console.error("Single download error:", err);
+        showError(`Failed to download '${track.title}': ${err.message}`);
+        btn.classList.remove("loading");
+        btn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6l12 12" stroke="#FF3366" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+        `;
+        setTimeout(() => {
+            btn.innerHTML = originalHtml;
+        }, 3000);
+    }
+}
+
+// ---------- Start Full Playlist / Single Download ----------
 
 async function startDownload() {
     if (!currentPlaylistUrl) return;
 
+    // If it is a single song, download the MP3 directly!
+    if (currentPlaylistData && (currentPlaylistData.type === "track" || currentPlaylistData.total_tracks === 1)) {
+        return downloadSingleTrack(null, 0);
+    }
+
     const btn = document.getElementById("download-btn");
     btn.disabled = true;
-    btn.querySelector("span").textContent = "Downloading (5 parallel)...";
+    const spanText = document.getElementById("download-btn-text") || btn.querySelector("span");
+    spanText.textContent = "Downloading (2 parallel)...";
 
     try {
         const res = await fetch("/api/download", {
@@ -189,7 +282,7 @@ async function startDownload() {
         if (!res.ok) {
             showError(data.error || "Failed to start download");
             btn.disabled = false;
-            btn.querySelector("span").textContent = "Download All";
+            spanText.textContent = `Download All (${currentPlaylistData.total_tracks} tracks)`;
             return;
         }
 
@@ -199,9 +292,10 @@ async function startDownload() {
     } catch (err) {
         showError("Network error — is the server running?");
         btn.disabled = false;
-        btn.querySelector("span").textContent = "Download All";
+        spanText.textContent = "Download All";
     }
 }
+
 
 function showProgressSection() {
     document.getElementById("progress-section").classList.remove("hidden");
