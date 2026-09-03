@@ -82,17 +82,94 @@ def process_cover_image(image_bytes: bytes) -> bytes:
         return image_bytes
 
 
-def extract_playlist_id(url: str) -> str:
-    """Extract the playlist ID from various Spotify URL formats."""
+def extract_spotify_id(url: str) -> tuple:
+    """Extract (entity_type, entity_id) from Spotify playlist or track URL."""
     patterns = [
-        r"spotify\.com/playlist/([a-zA-Z0-9]+)",
-        r"spotify:playlist:([a-zA-Z0-9]+)",
+        (r"spotify\.com/playlist/([a-zA-Z0-9]+)", "playlist"),
+        (r"spotify:playlist:([a-zA-Z0-9]+)", "playlist"),
+        (r"spotify\.com/track/([a-zA-Z0-9]+)", "track"),
+        (r"spotify:track:([a-zA-Z0-9]+)", "track"),
     ]
-    for pattern in patterns:
+    for pattern, entity_type in patterns:
         match = re.search(pattern, url)
         if match:
-            return match.group(1)
-    raise ValueError("Invalid Spotify playlist URL. Make sure it looks like: https://open.spotify.com/playlist/...")
+            return entity_type, match.group(1)
+    raise ValueError("Invalid Spotify URL. Please make sure it is a playlist or track link (e.g. https://open.spotify.com/playlist/... or https://open.spotify.com/track/...)")
+
+
+def extract_playlist_id(url: str) -> str:
+    """Extract the playlist or track ID for backward compatibility."""
+    _, entity_id = extract_spotify_id(url)
+    return entity_id
+
+
+def fetch_single_track(track_id: str) -> dict:
+    """Fetch metadata for a single Spotify track via embed page and oEmbed fallback."""
+    embed_url = f"https://open.spotify.com/embed/track/{track_id}"
+    resp = requests.get(embed_url, headers=HEADERS, timeout=12)
+
+    title = None
+    artists = None
+    cover_url = None
+    duration_ms = 0
+    album_name = ""
+    release_date = ""
+    preview_url = None
+
+    if resp.status_code == 200:
+        match = re.search(
+            r'<script\s+id="__NEXT_DATA__"\s+type="application/json">\s*(.*?)\s*</script>',
+            resp.text,
+            re.DOTALL,
+        )
+        if match:
+            try:
+                data = json.loads(match.group(1))
+                entity = data.get("props", {}).get("pageProps", {}).get("state", {}).get("data", {}).get("entity", {})
+                title = sanitize_text(entity.get("name") or entity.get("title", ""))
+                artists = ", ".join(sanitize_text(a.get("name", "")) for a in entity.get("artists", []))
+                images = entity.get("visualIdentity", {}).get("image", [])
+                if images:
+                    cover_url = images[-1].get("url") or images[0].get("url")
+                duration_ms = entity.get("duration", 0)
+                album_name = sanitize_text(entity.get("album", {}).get("name", ""))
+                release_date = entity.get("releaseDate", {}).get("isoString", "")
+                preview_url = entity.get("audioPreview", {}).get("url")
+            except Exception:
+                pass
+
+    if not title:
+        try:
+            oembed_url = f"https://open.spotify.com/oembed?url=https://open.spotify.com/track/{track_id}"
+            oe = requests.get(oembed_url, headers=HEADERS, timeout=8).json()
+            title = sanitize_text(oe.get("title", "Track"))
+            cover_url = oe.get("thumbnail_url")
+            artists = sanitize_text(oe.get("author_name", "Unknown Artist"))
+        except Exception:
+            raise RuntimeError(f"Could not load Spotify track details for ID: {track_id}")
+
+    track_obj = {
+        "id": track_id,
+        "title": title,
+        "artist": artists or "Unknown Artist",
+        "album": album_name,
+        "release_date": release_date,
+        "track_number": 1,
+        "duration_ms": duration_ms,
+        "cover_url": cover_url,
+        "preview_url": preview_url,
+    }
+
+    return {
+        "type": "track",
+        "name": title,
+        "description": f"Song by {artists}",
+        "owner": artists or "Spotify",
+        "cover_url": cover_url,
+        "total_tracks": 1,
+        "tracks": [track_obj],
+    }
+
 
 
 def _get_anonymous_token() -> str:
@@ -652,7 +729,7 @@ def download_playlist(
     High-speed parallel pipeline with automatic retries and cloud memory optimization:
     fetch playlist → download tracks concurrently → tag with song-specific JPEG artwork → zip.
     """
-    playlist_data = fetch_playlist(playlist_url)
+    playlist_data = fetch_spotify_data(playlist_url)
     session_id = str(uuid.uuid4())[:8]
     safe_name = re.sub(r'[<>:"/\\|?*]', "_", playlist_data["name"])
     download_dir = os.path.join(base_download_dir, f"{safe_name}_{session_id}")
@@ -690,4 +767,24 @@ def download_playlist(
     shutil.rmtree(download_dir, ignore_errors=True)
 
     return zip_path, zip_filename, playlist_data
+
+
+def fetch_spotify_data(url: str) -> dict:
+    """Fetch metadata for either a Spotify playlist or a single track."""
+    entity_type, entity_id = extract_spotify_id(url)
+    if entity_type == "track":
+        return fetch_single_track(entity_id)
+    return fetch_playlist(url)
+
+
+def download_single_track(track: dict, output_dir: str) -> str:
+    """Download a single track, tag with high-res cover art & ID3v2.3 tags, and return MP3 path."""
+    os.makedirs(output_dir, exist_ok=True)
+    mp3_path, yt_thumb = search_and_download(track, output_dir)
+    cover_url = get_song_specific_cover(track, yt_thumbnail_url=yt_thumb, default_cover_url=track.get("cover_url"))
+    tag_mp3(mp3_path, track, cover_url=cover_url)
+    import gc
+    gc.collect()
+    return mp3_path
+
 
