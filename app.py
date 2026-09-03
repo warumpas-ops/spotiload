@@ -19,7 +19,14 @@ except Exception as e:
 
 from queue import Queue
 from flask import Flask, render_template, request, jsonify, Response, send_file
-from downloader import fetch_playlist, download_playlist, extract_playlist_id
+from downloader import (
+    fetch_playlist,
+    download_playlist,
+    extract_playlist_id,
+    fetch_spotify_data,
+    download_single_track,
+    extract_spotify_id,
+)
 
 
 
@@ -153,10 +160,10 @@ def get_playlist():
     url = data.get("url", "").strip()
 
     if not url:
-        return jsonify({"error": "Please provide a Spotify playlist URL"}), 400
+        return jsonify({"error": "Please provide a Spotify playlist or song link"}), 400
 
     try:
-        playlist_data = fetch_playlist(url)
+        playlist_data = fetch_spotify_data(url)
         frontend_tracks = []
         for t in playlist_data.get("tracks", []):
             frontend_tracks.append({
@@ -166,10 +173,13 @@ def get_playlist():
                 "album": t["album"],
                 "cover_url": t.get("cover_url", ""),
                 "duration_ms": t["duration_ms"],
+                "release_date": t.get("release_date", ""),
+                "track_number": t.get("track_number", 1),
             })
 
         return jsonify({
-            "name": playlist_data.get("name", "Spotify Playlist"),
+            "type": playlist_data.get("type", "playlist"),
+            "name": playlist_data.get("name", "Spotify Music"),
             "description": playlist_data.get("description", ""),
             "owner": playlist_data.get("owner", "Unknown"),
             "cover_url": playlist_data.get("cover_url", ""),
@@ -179,7 +189,32 @@ def get_playlist():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
-        return jsonify({"error": f"Failed to fetch playlist: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to fetch music: {str(e)}"}), 500
+
+
+@app.route("/api/download-single", methods=["POST"])
+def download_single():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No track information provided"}), 400
+
+    track = data.get("track") or data
+    if not track.get("title"):
+        return jsonify({"error": "Track title is required"}), 400
+
+    try:
+        session_id = str(uuid.uuid4())[:8]
+        single_dir = os.path.join(DOWNLOAD_DIR, f"single_{session_id}")
+        mp3_path = download_single_track(track, single_dir)
+        filename = os.path.basename(mp3_path)
+        return send_file(
+            mp3_path,
+            as_attachment=True,
+            download_name=filename,
+            mimetype="audio/mpeg"
+        )
+    except Exception as e:
+        return jsonify({"error": f"Single song download failed: {str(e)}"}), 500
 
 
 @app.route("/api/download", methods=["POST"])
@@ -188,12 +223,12 @@ def start_download():
     url = data.get("url", "").strip()
 
     if not url:
-        return jsonify({"error": "Please provide a Spotify playlist URL"}), 400
+        return jsonify({"error": "Please provide a Spotify URL"}), 400
 
     try:
-        extract_playlist_id(url)
-    except ValueError:
-        return jsonify({"error": "Invalid Spotify playlist URL"}), 400
+        extract_spotify_id(url)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     session_id = str(uuid.uuid4())[:12]
     queue = Queue()
@@ -222,6 +257,7 @@ def start_download():
     thread.start()
 
     return jsonify({"session_id": session_id})
+
 
 
 @app.route("/api/progress/<session_id>")
