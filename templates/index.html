@@ -59,7 +59,7 @@
                     <input
                         type="text"
                         id="playlist-url"
-                        placeholder="https://open.spotify.com/playlist/..."
+                        placeholder="Paste Spotify playlist or song link..."
                         spellcheck="false"
                         autocomplete="off"
                     >
@@ -80,7 +80,7 @@
                     <img id="playlist-cover" src="" alt="Playlist Cover" class="playlist-cover">
                 </div>
                 <div class="playlist-info">
-                    <span class="playlist-label">PLAYLIST</span>
+                    <span class="playlist-label" id="playlist-label">PLAYLIST</span>
                     <h2 id="playlist-name" class="playlist-name"></h2>
                     <p id="playlist-meta" class="playlist-meta"></p>
                     <button id="download-btn" class="download-btn" onclick="startDownload()">
@@ -89,7 +89,7 @@
                             <polyline points="7 10 12 15 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                         </svg>
-                        <span>Download All</span>
+                        <span id="download-btn-text">Download All</span>
                     </button>
                 </div>
             </div>
