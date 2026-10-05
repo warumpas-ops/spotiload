@@ -216,8 +216,9 @@ async function downloadSingleTrack(event, index) {
             throw new Error(errData.error || "Download failed");
         }
 
-        // Grab the stream URL from the response header before consuming the body
+        // Grab the stream URL and cover URL from the response headers
         const streamUrl = res.headers.get("X-Stream-Url");
+        const coverUrl = res.headers.get("X-Cover-Url") || track.cover_url;
 
         const blob = await res.blob();
         const blobUrl = window.URL.createObjectURL(blob);
@@ -229,11 +230,13 @@ async function downloadSingleTrack(event, index) {
         a.click();
         a.remove();
 
-        // Feed the song into the WMP player using the server-side stream URL
-        // (more reliable than a blob URL across tab focus changes)
+        // Feed the song and cover into the WMP player
         if (typeof wmpUpdateTrackAudio === "function") {
             const audioUrl = streamUrl || blobUrl;
-            wmpUpdateTrackAudio(index, audioUrl);
+            if (coverUrl) {
+                track.cover_url = coverUrl;
+            }
+            wmpUpdateTrackAudio(index, audioUrl, true, coverUrl);
             // If using blob URL, don't revoke it immediately — let the player load it first
             if (!streamUrl) {
                 setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60000);
@@ -422,7 +425,10 @@ function markTrackDone(data) {
             );
         }
         if (trackIndex !== -1) {
-            wmpUpdateTrackAudio(trackIndex, data.stream_url);
+            if (data.cover_url) {
+                currentPlaylistData.tracks[trackIndex].cover_url = data.cover_url;
+            }
+            wmpUpdateTrackAudio(trackIndex, data.stream_url, true, data.cover_url);
         }
     }
 }
