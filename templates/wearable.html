@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORB Wearable Player</title>
+<style>
+  :root{
+    --metal-1:#f2f5f8;
+    --metal-2:#c3ccd4;
+    --metal-3:#8d97a1;
+    --metal-4:#5b636b;
+    --trim:#3aa8ec;
+    --trim-dim:#1f6fa3;
+    --screen-bg:#050b16;
+    --screen-glow:#0d2a4a;
+    --ok:#38e6c5;
+    --page-bg:#e9ecef;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:radial-gradient(circle at 50% 30%, #f4f6f8, var(--page-bg));
+    font-family:'Segoe UI', system-ui, -apple-system, sans-serif;
+    padding:40px 16px;
+  }
+  .stage{
+    width:min(560px,94vw);
+    aspect-ratio:600/540;
+    position:relative;
+    filter:drop-shadow(0 30px 40px rgba(30,40,55,.25));
+  }
+  .stage svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;}
+
+  /* ---- power / hook button ---- */
+  .power-btn{
+    position:absolute;
+    left:11.5%; top:24.5%;
+    width:11%; aspect-ratio:1;
+    border-radius:50%;
+    border:none;
+    cursor:pointer;
+    background:
+      radial-gradient(circle at 35% 30%, #4fc3ff, #0a3a5c 60%, #041722 100%);
+    box-shadow:inset 0 0 0 3px #cfd8de, 0 2px 4px rgba(0,0,0,.4);
+    transition:box-shadow .25s ease;
+  }
+  .power-btn.on{box-shadow:inset 0 0 0 3px #cfd8de, 0 0 14px 3px var(--trim), 0 2px 4px rgba(0,0,0,.4);}
+  .power-btn:active{transform:scale(.94);}
+
+  /* ---- diamond control buttons on the band ---- */
+  .band-btn{
+    position:absolute;
+    width:9%; aspect-ratio:1;
+    border:none;
+    cursor:pointer;
+    background:linear-gradient(145deg,#dfe5ea,#9aa5ae);
+    box-shadow:0 2px 3px rgba(0,0,0,.35), inset 0 1px 1px rgba(255,255,255,.6);
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .12s ease, box-shadow .12s ease, background .2s ease;
+  }
+  .band-btn.diamond{ border-radius:6px; transform:rotate(45deg); }
+  .band-btn.diamond svg, .band-btn.round svg{ transform:rotate(-45deg); }
+  .band-btn.round{ border-radius:50%; }
+  .band-btn svg{width:46%;height:46%;fill:#4a545d;}
+  .band-btn:hover{transform:rotate(45deg) scale(1.08);}
+  .band-btn.round:hover{transform:scale(1.08);}
+  .band-btn:active{transform:rotate(45deg) scale(.93);}
+  .band-btn.round:active{transform:scale(.93);}
+  .band-btn.active{background:linear-gradient(145deg,#7fd8ff,#1f8fd8); box-shadow:0 0 10px 2px var(--trim), inset 0 1px 1px rgba(255,255,255,.7);}
+  .band-btn.active svg{fill:#04263c;}
+  #btnPrev{left:9.5%; top:38%;}
+  #btnStop{left:15%; top:47.5%;}
+  #btnPlay{left:22.5%; top:57%; width:10.5%;}
+  #btnMute{left:31%; top:66%;}
+  #btnNext{left:40%; top:74.5%;}
+
+  /* ---- screen UI ---- */
+  .screen{
+    position:absolute;
+    left:49%; top:23.5%;
+    width:35%; height:39%;
+    transform:translate(-50%,0);
+    display:flex; flex-direction:column;
+    color:#cfe8ff;
+    opacity:.35; pointer-events:none;
+    transition:opacity .4s ease;
+  }
+  .screen.on{opacity:1; pointer-events:auto;}
+  .topbar{display:flex; align-items:center; justify-content:space-between; font-size:clamp(7px,1.6vw,10px); opacity:.85;}
+  .topbar .bars{display:flex; gap:2px; align-items:flex-end;}
+  .topbar .bars i{display:block; width:3px; background:#cfe8ff; border-radius:1px;}
+  .topbar .win-ctrls{display:flex; gap:6px;}
+  .topbar .win-ctrls button{
+    background:none;border:none;color:#cfe8ff;font-size:11px;cursor:pointer;opacity:.8;padding:0 2px;
+  }
+  .topbar .win-ctrls button:hover{opacity:1;color:#fff;}
+
+  .brand{
+    flex:1;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:4%;
+  }
+  .logo{width:34%;}
+  .brand-name{font-size:clamp(8px,2vw,12px); letter-spacing:.12em; font-weight:600; color:#eaf6ff;}
+  .brand-sub{font-size:clamp(6px,1.4vw,8px); letter-spacing:.2em; color:var(--trim); opacity:.85;}
+  .track{margin-top:6%; text-align:center;}
+  .track .title{font-size:clamp(7px,1.7vw,10px); font-weight:600; color:#fff;}
+  .track .artist{font-size:clamp(6px,1.4vw,8px); color:#9fc4e6; margin-top:1px;}
+
+  .eq{display:flex; gap:3px; align-items:flex-end; height:14%; margin:4% 0; justify-content:center;}
+  .eq i{width:4px; background:linear-gradient(var(--trim),var(--ok)); border-radius:2px; height:20%; transition:height .15s;}
+  .eq.playing i{animation:bounce 900ms ease-in-out infinite;}
+  .eq i:nth-child(1){animation-delay:.0s;}
+  .eq i:nth-child(2){animation-delay:.12s;}
+  .eq i:nth-child(3){animation-delay:.24s;}
+  .eq i:nth-child(4){animation-delay:.36s;}
+  .eq i:nth-child(5){animation-delay:.48s;}
+  @keyframes bounce{0%,100%{height:15%;}50%{height:90%;}}
+
+  .progress{width:80%; height:3px; background:#173250; border-radius:2px; margin:0 auto; overflow:hidden;}
+  .progress-fill{height:100%; width:0%; background:linear-gradient(90deg,var(--trim),var(--ok)); transition:width .2s linear;}
+
+  .bottom{display:flex; align-items:center; justify-content:space-between; margin-top:auto; padding-top:4%;}
+  .vol{display:flex; gap:2px; align-items:flex-end; cursor:pointer;}
+  .vol i{display:block; width:3px; background:#4a6a88; border-radius:1px;}
+  .vol i.on{background:var(--trim);}
+  .menu-btn{background:none;border:none;color:#cfe8ff;cursor:pointer;font-size:12px;padding:0;opacity:.8;}
+  .menu-btn:hover{opacity:1;}
+
+  .menu-list{
+    position:absolute; left:49%; top:23.5%; transform:translate(-50%,0);
+    width:35%; background:#081524; border:1px solid #1c3c5c; border-radius:6px;
+    padding:4px 0; display:none; z-index:5; box-shadow:0 6px 16px rgba(0,0,0,.5);
+  }
+  .menu-list.show{display:block;}
+  .menu-list div{padding:5px 8px; font-size:clamp(6px,1.5vw,9px); color:#cfe8ff; cursor:pointer;}
+  .menu-list div:hover{background:#123350;}
+  .menu-list div.sel{color:var(--ok);}
+
+  .caption{
+    text-align:center; margin-top:22px; font-size:12px; color:#7b8894; letter-spacing:.04em;
+  }
+</style>
+</head>
+<body>
+
+<div>
+<div class="stage">
+  <svg viewBox="0 0 600 540" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="bandGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="var(--metal-1)"/>
+        <stop offset="45%" stop-color="var(--metal-2)"/>
+        <stop offset="100%" stop-color="var(--metal-4)"/>
+      </linearGradient>
+      <radialGradient id="bezelGrad" cx="35%" cy="30%" r="75%">
+        <stop offset="0%" stop-color="var(--metal-1)"/>
+        <stop offset="55%" stop-color="var(--metal-2)"/>
+        <stop offset="100%" stop-color="var(--metal-4)"/>
+      </radialGradient>
+      <radialGradient id="screenGrad" cx="38%" cy="30%" r="75%">
+        <stop offset="0%" stop-color="var(--screen-glow)"/>
+        <stop offset="100%" stop-color="var(--screen-bg)"/>
+      </radialGradient>
+    </defs>
+
+    <!-- upper claw arm -->
+    <path d="M120,135 C160,105 210,95 258,101 C282,104 296,111 302,121"
+          fill="none" stroke="url(#bandGrad)" stroke-width="58" stroke-linecap="round"/>
+    <path d="M120,135 C160,105 210,95 258,101 C282,104 296,111 302,121"
+          fill="none" stroke="var(--trim)" stroke-width="5" opacity=".8" stroke-linecap="round"/>
+
+    <!-- main lower band -->
+    <path d="M108,150 C68,160 44,200 47,252 C50,304 86,344 132,368 C186,396 246,404 296,392 C308,389 316,382 320,373"
+          fill="none" stroke="url(#bandGrad)" stroke-width="64" stroke-linecap="round"/>
+    <path d="M108,150 C68,160 44,200 47,252 C50,304 86,344 132,368 C186,396 246,404 296,392 C308,389 316,382 320,373"
+          fill="none" stroke="var(--trim)" stroke-width="5" opacity=".8" stroke-linecap="round"/>
+
+    <!-- vent ridges near hook -->
+    <g stroke="var(--metal-4)" stroke-width="5" stroke-linecap="round" opacity=".55">
+      <line x1="150" y1="78" x2="168" y2="60"/>
+      <line x1="166" y1="88" x2="184" y2="70"/>
+      <line x1="182" y1="98" x2="200" y2="80"/>
+      <line x1="198" y1="108" x2="216" y2="90"/>
+    </g>
+
+    <!-- screen bezel -->
+    <circle cx="400" cy="235" r="158" fill="url(#bezelGrad)"/>
+    <circle cx="400" cy="235" r="158" fill="none" stroke="var(--trim-dim)" stroke-width="3" opacity=".6"/>
+    <circle cx="400" cy="235" r="146" fill="url(#screenGrad)"/>
+    <ellipse cx="350" cy="170" rx="70" ry="36" fill="#ffffff" opacity=".06" transform="rotate(-25 350 170)"/>
+
+    <!-- speaker grille -->
+    <g fill="var(--metal-4)" opacity=".7">
+      <circle cx="378" cy="382" r="2.4"/>
+      <circle cx="390" cy="386" r="2.4"/>
+      <circle cx="402" cy="388" r="2.4"/>
+      <circle cx="414" cy="386" r="2.4"/>
+      <circle cx="426" cy="382" r="2.4"/>
+    </g>
+  </svg>
+
+  <!-- power button -->
+  <button class="power-btn" id="powerBtn" aria-label="Power"></button>
+
+  <!-- band diamond controls -->
+  <button class="band-btn diamond" id="btnPrev" aria-label="Previous track" title="Previous">
+    <svg viewBox="0 0 24 24"><path d="M6 4h2v16H6zM20 4L9 12l11 8z"/></svg>
+  </button>
+  <button class="band-btn round" id="btnStop" aria-label="Stop" title="Stop">
+    <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>
+  </button>
+  <button class="band-btn diamond" id="btnPlay" aria-label="Play or pause" title="Play / Pause">
+    <svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg>
+  </button>
+  <button class="band-btn round" id="btnMute" aria-label="Mute" title="Mute">
+    <svg viewBox="0 0 24 24" id="muteIcon"><path d="M4 9v6h4l5 5V4L8 9H4z"/></svg>
+  </button>
+  <button class="band-btn diamond" id="btnNext" aria-label="Next track" title="Next">
+    <svg viewBox="0 0 24 24"><path d="M16 4h2v16h-2zM4 4l11 8L4 20z"/></svg>
+  </button>
+
+  <!-- screen UI -->
+  <div class="screen" id="screen">
+    <div class="topbar">
+      <div class="bars">
+        <i style="height:4px"></i><i style="height:6px"></i><i style="height:8px"></i><i style="height:10px"></i>
+      </div>
+      <div class="win-ctrls">
+        <button id="btnMin" title="Sleep">–</button>
+        <button id="btnClose" title="Power off">✕</button>
+      </div>
+    </div>
+
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 100 100">
+        <path d="M50 4 C50 4 54 24 50 48 C46 24 50 4 50 4Z" fill="#3aa8ec" transform="rotate(0 50 50)"/>
+        <path d="M50 4 C50 4 54 24 50 48 C46 24 50 4 50 4Z" fill="#38e6c5" transform="rotate(90 50 50)"/>
+        <path d="M50 4 C50 4 54 24 50 48 C46 24 50 4 50 4Z" fill="#f2c94c" transform="rotate(180 50 50)"/>
+        <path d="M50 4 C50 4 54 24 50 48 C46 24 50 4 50 4Z" fill="#eb5757" transform="rotate(270 50 50)"/>
+        <circle cx="50" cy="50" r="9" fill="#eaf6ff"/>
+      </svg>
+      <div class="brand-name">MEDIA PLAYER</div>
+      <div class="brand-sub">ORB SERIES</div>
+    </div>
+
+    <div class="track">
+      <div class="title" id="trackTitle">Horizon Drift</div>
+      <div class="artist" id="trackArtist">Late Static</div>
+    </div>
+
+    <div class="eq" id="eq"><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+
+    <div class="bottom">
+      <div class="vol" id="volBars" title="Volume">
+        <i style="height:4px" data-lvl="1"></i>
+        <i style="height:7px" data-lvl="2"></i>
+        <i style="height:10px" data-lvl="3"></i>
+        <i style="height:13px" data-lvl="4"></i>
+        <i style="height:16px" data-lvl="5"></i>
+      </div>
+      <button class="menu-btn" id="btnMenu" title="Track list">☰</button>
+    </div>
+  </div>
+
+  <div class="menu-list" id="menuList"></div>
+</div>
+<div class="caption">Tap the power dot to switch on, then use the band controls or the screen.</div>
+</div>
+
+<script>
+  const tracks = [
+    {title:"Horizon Drift", artist:"Late Static"},
+    {title:"Copper Skyline", artist:"Nova Wren"},
+    {title:"Glass Weather", artist:"Late Static"},
+    {title:"Halfway Signal", artist:"Kite Season"},
+  ];
+
+  let state = { power:false, playing:false, trackIndex:0, progress:0, volume:3, muted:false };
+  let rafId = null, lastT = null;
+
+  const el = id => document.getElementById(id);
+  const powerBtn = el('powerBtn'), screen = el('screen');
+  const playIcon = el('playIcon'), muteIcon = el('muteIcon');
+  const trackTitle = el('trackTitle'), trackArtist = el('trackArtist');
+  const eq = el('eq'), progressFill = el('progressFill');
+  const volBars = el('volBars'), menuList = el('menuList');
+
+  function renderTrack(){
+    const t = tracks[state.trackIndex];
+    trackTitle.textContent = t.title;
+    trackArtist.textContent = t.artist;
+  }
+
+  function renderVolume(){
+    [...volBars.children].forEach(bar=>{
+      const lvl = +bar.dataset.lvl;
+      bar.classList.toggle('on', !state.muted && lvl<=state.volume);
+    });
+    muteIcon.innerHTML = state.muted
+      ? '<path d="M16.5 12L21 16.5 19.6 17.9 15.1 13.4 10.6 17.9 9.2 16.5 13.7 12 9.2 7.5 10.6 6.1 15.1 10.6 19.6 6.1 21 7.5z"/>'
+      : '<path d="M4 9v6h4l5 5V4L8 9H4z"/>';
+  }
+
+  function setPlaying(playing){
+    state.playing = playing;
+    eq.classList.toggle('playing', playing);
+    playIcon.setAttribute('d', playing ? 'M7 5h4v14H7zM13 5h4v14h-4z' : 'M8 5v14l11-7z');
+    if(playing){ lastT=null; rafId = requestAnimationFrame(tick); }
+    else if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
+  }
+
+  function tick(ts){
+    if(lastT===null) lastT=ts;
+    const dt = ts - lastT; lastT = ts;
+    state.progress += dt/60; // ~6s per loop
+    if(state.progress >= 100){ state.progress = 0; changeTrack(1); }
+    progressFill.style.width = state.progress + '%';
+    if(state.playing) rafId = requestAnimationFrame(tick);
+  }
+
+  function changeTrack(dir){
+    state.trackIndex = (state.trackIndex + dir + tracks.length) % tracks.length;
+    state.progress = 0;
+    progressFill.style.width = '0%';
+    renderTrack();
+  }
+
+  function buildMenu(){
+    menuList.innerHTML = tracks.map((t,i)=>
+      `<div data-i="${i}" class="${i===state.trackIndex?'sel':''}">${t.title} — ${t.artist}</div>`
+    ).join('');
+  }
+
+  function setPower(on){
+    state.power = on;
+    powerBtn.classList.toggle('on', on);
+    screen.classList.toggle('on', on);
+    menuList.classList.remove('show');
+    if(!on){ setPlaying(false); state.progress=0; progressFill.style.width='0%'; }
+  }
+
+  powerBtn.addEventListener('click', ()=> setPower(!state.power));
+  el('btnClose').addEventListener('click', ()=> setPower(false));
+  el('btnMin').addEventListener('click', ()=> setPower(false));
+
+  el('btnPlay').addEventListener('click', ()=>{ if(!state.power) return; setPlaying(!state.playing); });
+  el('btnStop').addEventListener('click', ()=>{ if(!state.power) return; setPlaying(false); state.progress=0; progressFill.style.width='0%'; });
+  el('btnNext').addEventListener('click', ()=>{ if(!state.power) return; changeTrack(1); });
+  el('btnPrev').addEventListener('click', ()=>{ if(!state.power) return; changeTrack(-1); });
+  el('btnMute').addEventListener('click', ()=>{ if(!state.power) return; state.muted = !state.muted; renderVolume(); });
+
+  volBars.addEventListener('click', e=>{
+    if(!state.power) return;
+    const bar = e.target.closest('i'); if(!bar) return;
+    state.muted = false;
+    state.volume = +bar.dataset.lvl;
+    renderVolume();
+  });
+
+  el('btnMenu').addEventListener('click', ()=>{
+    if(!state.power) return;
+    buildMenu();
+    menuList.classList.toggle('show');
+  });
+  menuList.addEventListener('click', e=>{
+    const row = e.target.closest('div'); if(!row) return;
+    state.trackIndex = +row.dataset.i;
+    state.progress = 0; progressFill.style.width='0%';
+    renderTrack();
+    menuList.classList.remove('show');
+  });
+
+  [el('btnPrev'), el('btnStop'), el('btnPlay'), el('btnMute'), el('btnNext')].forEach(b=>{
+    b.addEventListener('mousedown', ()=> b.classList.add('active'));
+    ['mouseup','mouseleave'].forEach(ev=> b.addEventListener(ev, ()=> b.classList.remove('active')));
+  });
+
+  renderTrack();
+  renderVolume();
+</script>
+</body>
+</html>
