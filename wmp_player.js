@@ -19,7 +19,10 @@ let state = {
     trackIndex: 0,
     progress: 0,
     volume: 3,
-    muted: false
+    muted: false,
+    userPaused: false,
+    hasPlayedFirst: false,
+    destroyed: false
 };
 
 function formatTimeMs(ms) {
@@ -43,6 +46,8 @@ function loadWmpPlaylist(tracks, defaultCover) {
 
     state.trackIndex = 0;
     wmpCurrentTrackIndex = 0;
+    state.userPaused = false;
+    state.hasPlayedFirst = false;
     renderTrack();
 }
 
@@ -115,6 +120,7 @@ function setPlaying(playing) {
 }
 
 function wmpSetTrack(index, autoPlay = true) {
+    if (state.destroyed) return;
     if (!wmpPlaylistTracks || !wmpPlaylistTracks[index]) return;
     state.trackIndex = index;
     wmpCurrentTrackIndex = index;
@@ -126,7 +132,7 @@ function wmpSetTrack(index, autoPlay = true) {
         if (wmpAudio.src !== track.preview_url) {
             wmpAudio.src = track.preview_url;
         }
-        if (autoPlay && state.power) {
+        if (autoPlay && state.power && !state.userPaused) {
             wmpAudio.play().then(() => {
                 setPlaying(true);
             }).catch((err) => {
@@ -149,6 +155,8 @@ function wmpSetTrack(index, autoPlay = true) {
  * Updates the playlist entry with the real MP3 stream or blob URL.
  */
 function wmpUpdateTrackAudio(index, url, autoPlay = true) {
+    if (state.destroyed) return; // Player bubble was closed/destroyed
+
     if (!wmpPlaylistTracks || !wmpPlaylistTracks[index]) {
         if (window.currentPlaylistData && window.currentPlaylistData.tracks && window.currentPlaylistData.tracks[index]) {
             loadWmpPlaylist(window.currentPlaylistData.tracks, window.currentPlaylistData.cover_url);
@@ -158,20 +166,24 @@ function wmpUpdateTrackAudio(index, url, autoPlay = true) {
 
     wmpPlaylistTracks[index].preview_url = url;
 
-    // If currently on this track: play it now!
-    if (index === state.trackIndex) {
-        renderTrack();
-        wmpSetTrack(index, autoPlay);
-    } else if (!state.playing && autoPlay) {
-        // If player is idle and this is the first track ready, switch to it and play!
+    // Only auto-play the FIRST song ever in the download session.
+    // NEVER auto-play if:
+    // 1) The user explicitly paused or stopped
+    // 2) Another song is already playing or has started
+    // 3) The player was destroyed
+    const isFirstTrackToArrive = !state.hasPlayedFirst && !state.userPaused;
+
+    if (isFirstTrackToArrive && autoPlay) {
+        state.hasPlayedFirst = true;
         wmpSetTrack(index, true);
     } else {
-        // Update next song card in case next track became ready
+        // Just quietly update track metadata & next card. DO NOT interrupt or force playback!
         renderTrack();
     }
 }
 
 function wmpTogglePlay() {
+    if (state.destroyed) return;
     if (wmpPlaylistTracks.length === 0) {
         const trackArtist = document.getElementById('trackArtist');
         if (trackArtist) trackArtist.textContent = "Download a song first!";
@@ -179,9 +191,9 @@ function wmpTogglePlay() {
     }
     const currentTrack = wmpPlaylistTracks[state.trackIndex];
     if (!currentTrack || !currentTrack.preview_url) {
-        // Find the first track that is ready!
         const readyIdx = wmpPlaylistTracks.findIndex(t => !!t.preview_url);
         if (readyIdx !== -1) {
+            state.userPaused = false;
             wmpSetTrack(readyIdx, true);
             return;
         }
@@ -191,6 +203,7 @@ function wmpTogglePlay() {
     }
 
     if (wmpAudio.paused) {
+        state.userPaused = false;
         wmpAudio.play().then(() => {
             setPlaying(true);
         }).catch((err) => {
@@ -199,6 +212,7 @@ function wmpTogglePlay() {
     } else {
         wmpAudio.pause();
         setPlaying(false);
+        state.userPaused = true; // User intentionally paused! Don't let new downloads unpause!
     }
 }
 
@@ -208,6 +222,7 @@ function wmpStop() {
     const fill = document.getElementById("progressFill");
     if (fill) fill.style.width = '0%';
     setPlaying(false);
+    state.userPaused = true; // User intentionally stopped!
 }
 
 function wmpPlayNext() {
@@ -271,13 +286,14 @@ function wmpMinimize() {
 }
 
 function wmpExplodeDestroy() {
+    state.destroyed = true;
+    state.userPaused = true;
+    wmpAudio.pause();
+    wmpAudio.src = "";
+    setPlaying(false);
+
     const nextCard = document.getElementById('nextCard');
     const mainOrb = document.getElementById('mainOrb');
-    const system = document.getElementById('wmp-widget');
-    const satellites = document.querySelectorAll('.aero-satellite-orb');
-
-    wmpAudio.pause();
-    setPlaying(false);
 
     if (nextCard) nextCard.classList.add('exploding-sat');
     if (mainOrb) mainOrb.classList.add('exploding-main');
