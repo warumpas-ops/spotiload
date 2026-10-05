@@ -782,14 +782,14 @@ def fetch_spotify_data(url: str) -> dict:
     return fetch_playlist(url)
 
 
-def download_single_track(track: dict, output_dir: str) -> str:
-    """Download a single track, tag with high-res cover art & ID3v2.3 tags, and return MP3 path."""
+def download_single_track(track: dict, output_dir: str) -> tuple:
+    """Download a single track, tag with high-res cover art & ID3v2.3 tags, and return (mp3_path, cover_url)."""
     os.makedirs(output_dir, exist_ok=True)
     mp3_path, yt_thumb = search_and_download(track, output_dir)
     cover_url = get_song_specific_cover(track, yt_thumbnail_url=yt_thumb, default_cover_url=track.get("cover_url"))
     tag_mp3(mp3_path, track, cover_url=cover_url)
     import gc
     gc.collect()
-    return mp3_path
+    return mp3_path, cover_url
 
 
