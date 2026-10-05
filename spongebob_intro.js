@@ -21,8 +21,7 @@
 
     const supportsWebM = canPlayWebM();
 
-    // Preload audio and video early
-    const sfxAudio = new Audio('/spongebob_bubble.mp3');
+    const sfxAudio = new Audio('spongebob_bubble.mp3');
     sfxAudio.preload = 'auto';
 
     function playSpongeBobIntro() {
@@ -97,7 +96,7 @@
         // Path A: Native Transparent WebM Video (100% GPU Hardware Accelerated, ZERO LAG)
         if (supportsWebM) {
             const video = document.createElement('video');
-            video.src = '/spongebob_bubble.webm';
+            video.src = 'spongebob_bubble.webm';
             video.playsInline = true;
             video.autoplay = true;
             video.muted = false;
