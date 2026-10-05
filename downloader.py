@@ -704,6 +704,7 @@ def _process_single_track(item: tuple, download_dir: str, default_cover: str, pr
 
             status["status"] = "done"
             status["cover_url"] = specific_cover
+            status["_mp3_path"] = mp3_path  # used by app.py to build stream_url, stripped before client
             if progress_callback:
                 progress_callback(status)
             return mp3_path
@@ -724,15 +725,19 @@ def download_playlist(
     base_download_dir: str,
     progress_callback=None,
     max_workers: int = 2,
+    custom_download_dir: str = None,
 ) -> tuple:
     """
     High-speed parallel pipeline with automatic retries and cloud memory optimization:
     fetch playlist → download tracks concurrently → tag with song-specific JPEG artwork → zip.
     """
     playlist_data = fetch_spotify_data(playlist_url)
-    session_id = str(uuid.uuid4())[:8]
     safe_name = re.sub(r'[<>:"/\\|?*]', "_", playlist_data["name"])
-    download_dir = os.path.join(base_download_dir, f"{safe_name}_{session_id}")
+    if custom_download_dir:
+        download_dir = custom_download_dir
+    else:
+        session_id = str(uuid.uuid4())[:8]
+        download_dir = os.path.join(base_download_dir, f"{safe_name}_{session_id}")
     os.makedirs(download_dir, exist_ok=True)
 
     tracks = playlist_data["tracks"]
@@ -763,10 +768,10 @@ def download_playlist(
         for fpath in downloaded_files:
             zf.write(fpath, os.path.basename(fpath))
 
-    # Clean up temp folder
-    shutil.rmtree(download_dir, ignore_errors=True)
-
-    return zip_path, zip_filename, playlist_data
+    # Note: download_dir is NOT deleted here.
+    # app.py keeps it alive so individual tracks can be streamed during the session,
+    # and cleans it up after the user downloads the zip.
+    return zip_path, zip_filename, playlist_data, download_dir
 
 
 def fetch_spotify_data(url: str) -> dict:
