@@ -206,7 +206,7 @@ def download_single():
     try:
         session_id = str(uuid.uuid4())[:8]
         single_dir = os.path.join(DOWNLOAD_DIR, f"single_{session_id}")
-        mp3_path = download_single_track(track, single_dir)
+        mp3_path, cover_url = download_single_track(track, single_dir)
         filename = os.path.basename(mp3_path)
 
         # Register session so the file can be streamed by the player
@@ -216,7 +216,7 @@ def download_single():
             "mp3_path": mp3_path,
         }
 
-        # Return both the file download AND a stream URL header for the player
+        # Return both the file download AND stream/cover URL headers for the player
         response = send_file(
             mp3_path,
             as_attachment=True,
@@ -225,7 +225,9 @@ def download_single():
         )
         response.headers["X-Stream-Url"] = f"/api/stream/single_{session_id}/{filename}"
         response.headers["X-Session-Id"] = f"single_{session_id}"
-        response.headers["Access-Control-Expose-Headers"] = "X-Stream-Url, X-Session-Id"
+        if cover_url:
+            response.headers["X-Cover-Url"] = cover_url
+        response.headers["Access-Control-Expose-Headers"] = "X-Stream-Url, X-Session-Id, X-Cover-Url"
         return response
     except Exception as e:
         return jsonify({"error": f"Single song download failed: {str(e)}"}), 500
