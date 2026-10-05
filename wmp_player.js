@@ -1,48 +1,14 @@
 /**
  * wmp_player.js — Controller for Aero Bubble Player System
  * Features:
- * - Starts minimized by default as a floating corner sphere
- * - Click anywhere on the sphere to expand
- * - Floating Next Song Card
+ * - Plays songs the user is currently downloading or has downloaded
+ * - Single track download -> plays that track immediately
+ * - Playlist download -> plays tracks as they finish, lets user skip through queue
  * - Interactive Satellite Orbs (Play, Stop, Prev, Next, Shuffle, Menu)
- * - Volume, Progress Bar, and Drawer List
+ * - Rotating CD and Frutiger Aero Equalizer visualizer
  */
 
-let wmpPlaylistTracks = [
-    {
-        id: "demo1",
-        title: "Horizon Drift",
-        artist: "Late Static",
-        cover_url: "/real_cd.png",
-        duration_ms: 205000,
-        preview_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-    },
-    {
-        id: "demo2",
-        title: "Frutiger Dreams",
-        artist: "Aqua Wave",
-        cover_url: "/real_cd.png",
-        duration_ms: 184000,
-        preview_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"
-    },
-    {
-        id: "demo3",
-        title: "Cyber Aquatic",
-        artist: "Aero-Orbit 2000",
-        cover_url: "/real_cd.png",
-        duration_ms: 220000,
-        preview_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"
-    },
-    {
-        id: "demo4",
-        title: "Starlight Promenade",
-        artist: "Vista Glass",
-        cover_url: "/real_cd.png",
-        duration_ms: 195000,
-        preview_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
-    }
-];
-
+let wmpPlaylistTracks = [];
 let wmpCurrentTrackIndex = 0;
 let wmpIsShuffle = false;
 const wmpAudio = new Audio();
@@ -72,22 +38,39 @@ function loadWmpPlaylist(tracks, defaultCover) {
         artist: t.artist || "Artist",
         cover_url: t.cover_url || defaultCover || "/real_cd.png",
         duration_ms: t.duration_ms || 180000,
-        preview_url: t.preview_url || `https://www.soundhelix.com/examples/mp3/SoundHelix-Song-${(idx % 15) + 1}.mp3`
+        preview_url: t.preview_url || null // Never use fake demo audio!
     }));
 
-    wmpSetTrack(0, false);
+    state.trackIndex = 0;
+    wmpCurrentTrackIndex = 0;
+    renderTrack();
 }
 
 function renderTrack() {
-    if (!wmpPlaylistTracks[state.trackIndex]) return;
-    const t = wmpPlaylistTracks[state.trackIndex];
     const trackTitle = document.getElementById('trackTitle');
     const trackArtist = document.getElementById('trackArtist');
     const thumb = document.getElementById('wmp-thumb');
     const nextSongTitle = document.getElementById('nextSongTitle');
 
+    if (!wmpPlaylistTracks || wmpPlaylistTracks.length === 0 || !wmpPlaylistTracks[state.trackIndex]) {
+        if (trackTitle) trackTitle.textContent = "Spotiload Player";
+        if (trackArtist) trackArtist.textContent = "Waiting for download...";
+        if (thumb) thumb.src = '/real_cd.png';
+        if (nextSongTitle) nextSongTitle.textContent = "Queue is empty";
+        return;
+    }
+
+    const t = wmpPlaylistTracks[state.trackIndex];
+
     if (trackTitle) trackTitle.textContent = t.title;
-    if (trackArtist) trackArtist.textContent = t.artist;
+    if (trackArtist) {
+        if (t.preview_url) {
+            trackArtist.textContent = t.artist;
+        } else {
+            trackArtist.textContent = `${t.artist} (Downloading...)`;
+        }
+    }
+
     if (thumb) {
         thumb.onerror = function() {
             this.onerror = null;
@@ -96,10 +79,15 @@ function renderTrack() {
         thumb.src = t.cover_url || '/real_cd.png';
     }
 
-    const nextIdx = (state.trackIndex + 1) % wmpPlaylistTracks.length;
-    const nextTrack = wmpPlaylistTracks[nextIdx];
-    if (nextSongTitle && nextTrack) {
-        nextSongTitle.textContent = `${nextTrack.title} — ${nextTrack.artist}`;
+    if (wmpPlaylistTracks.length > 1) {
+        const nextIdx = (state.trackIndex + 1) % wmpPlaylistTracks.length;
+        const nextTrack = wmpPlaylistTracks[nextIdx];
+        if (nextSongTitle && nextTrack) {
+            const status = nextTrack.preview_url ? "✓ Ready" : "⏳ Downloading";
+            nextSongTitle.textContent = `${nextTrack.title} — ${nextTrack.artist} (${status})`;
+        }
+    } else {
+        if (nextSongTitle) nextSongTitle.textContent = "Single Track Mode";
     }
 }
 
@@ -135,25 +123,73 @@ function wmpSetTrack(index, autoPlay = true) {
     renderTrack();
 
     if (track.preview_url) {
-        wmpAudio.src = track.preview_url;
+        if (wmpAudio.src !== track.preview_url) {
+            wmpAudio.src = track.preview_url;
+        }
         if (autoPlay && state.power) {
             wmpAudio.play().then(() => {
                 setPlaying(true);
-            }).catch(() => {
+            }).catch((err) => {
+                console.log("Audio play note:", err);
                 setPlaying(false);
             });
         }
     } else {
         wmpAudio.pause();
         setPlaying(false);
+        const fill = document.getElementById("progressFill");
+        if (fill) fill.style.width = '0%';
+        const currElem = document.getElementById("orbTimeCurr");
+        if (currElem) currElem.textContent = "Wait";
+    }
+}
+
+/**
+ * Called when a downloaded track becomes available.
+ * Updates the playlist entry with the real MP3 stream or blob URL.
+ */
+function wmpUpdateTrackAudio(index, url, autoPlay = true) {
+    if (!wmpPlaylistTracks || !wmpPlaylistTracks[index]) {
+        if (window.currentPlaylistData && window.currentPlaylistData.tracks && window.currentPlaylistData.tracks[index]) {
+            loadWmpPlaylist(window.currentPlaylistData.tracks, window.currentPlaylistData.cover_url);
+        }
+    }
+    if (!wmpPlaylistTracks || !wmpPlaylistTracks[index]) return;
+
+    wmpPlaylistTracks[index].preview_url = url;
+
+    // If currently on this track: play it now!
+    if (index === state.trackIndex) {
+        renderTrack();
+        wmpSetTrack(index, autoPlay);
+    } else if (!state.playing && autoPlay) {
+        // If player is idle and this is the first track ready, switch to it and play!
+        wmpSetTrack(index, true);
+    } else {
+        // Update next song card in case next track became ready
+        renderTrack();
     }
 }
 
 function wmpTogglePlay() {
-    if (!wmpAudio.src && wmpPlaylistTracks.length > 0) {
-        wmpSetTrack(0, true);
+    if (wmpPlaylistTracks.length === 0) {
+        const trackArtist = document.getElementById('trackArtist');
+        if (trackArtist) trackArtist.textContent = "Download a song first!";
         return;
     }
+    const currentTrack = wmpPlaylistTracks[state.trackIndex];
+    if (!currentTrack || !currentTrack.preview_url) {
+        // Find the first track that is ready!
+        const readyIdx = wmpPlaylistTracks.findIndex(t => !!t.preview_url);
+        if (readyIdx !== -1) {
+            wmpSetTrack(readyIdx, true);
+            return;
+        }
+        const trackArtist = document.getElementById('trackArtist');
+        if (trackArtist) trackArtist.textContent = "Downloading... please wait!";
+        return;
+    }
+
     if (wmpAudio.paused) {
         wmpAudio.play().then(() => {
             setPlaying(true);
@@ -204,9 +240,18 @@ function wmpToggleMenu() {
     const drawerList = document.getElementById('orbDrawerList');
     if (!drawer || !drawerList) return;
 
-    drawerList.innerHTML = wmpPlaylistTracks.map((t, i) =>
-        `<div onclick="wmpSetTrack(${i}, true); document.getElementById('orbDrawer').classList.remove('show');" class="${i === state.trackIndex ? 'active' : ''}">${t.title} — ${t.artist}</div>`
-    ).join('');
+    if (wmpPlaylistTracks.length === 0) {
+        drawerList.innerHTML = `<div style="padding: 10px; color: rgba(255,255,255,0.7); text-align: center;">No tracks queued.<br>Download songs to play!</div>`;
+    } else {
+        drawerList.innerHTML = wmpPlaylistTracks.map((t, i) => {
+            const isReady = !!t.preview_url;
+            const badge = isReady ? '▶️ Ready' : '⏳ Downloading';
+            return `<div onclick="wmpSetTrack(${i}, true); document.getElementById('orbDrawer').classList.remove('show');" class="${i === state.trackIndex ? 'active' : ''}">
+                <span>${t.title} — ${t.artist}</span>
+                <small style="opacity: 0.75; font-size: 10px; margin-left: 8px;">${badge}</small>
+            </div>`;
+        }).join('');
+    }
 
     drawer.classList.toggle('show');
 }
@@ -281,21 +326,9 @@ function initWmpPlayer() {
         });
     }
 
-    // Set initial track & volume
-    wmpSetTrack(0, false);
+    // Set initial display (clean, no fake demo songs)
+    renderTrack();
     renderVolume();
-
-    // Fetch trending songs for the player
-    fetch('/api/trending')
-        .then(res => res.json())
-        .then(data => {
-            if (data.tracks && data.tracks.length > 0) {
-                loadWmpPlaylist(data.tracks, data.cover_url);
-            }
-        })
-        .catch(err => {
-            console.log("Trending load note:", err);
-        });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
