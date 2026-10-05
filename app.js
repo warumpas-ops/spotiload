@@ -216,6 +216,9 @@ async function downloadSingleTrack(event, index) {
             throw new Error(errData.error || "Download failed");
         }
 
+        // Grab the stream URL from the response header before consuming the body
+        const streamUrl = res.headers.get("X-Stream-Url");
+
         const blob = await res.blob();
         const blobUrl = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -225,7 +228,21 @@ async function downloadSingleTrack(event, index) {
         document.body.appendChild(a);
         a.click();
         a.remove();
-        window.URL.revokeObjectURL(blobUrl);
+
+        // Feed the song into the WMP player using the server-side stream URL
+        // (more reliable than a blob URL across tab focus changes)
+        if (typeof wmpUpdateTrackAudio === "function") {
+            const audioUrl = streamUrl || blobUrl;
+            wmpUpdateTrackAudio(index, audioUrl);
+            // If using blob URL, don't revoke it immediately — let the player load it first
+            if (!streamUrl) {
+                setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60000);
+            } else {
+                window.URL.revokeObjectURL(blobUrl);
+            }
+        } else {
+            window.URL.revokeObjectURL(blobUrl);
+        }
 
         btn.classList.remove("loading");
         btn.classList.add("success");
@@ -389,6 +406,24 @@ function markTrackDone(data) {
     if (data.cover_url) {
         const img = row.querySelector(".track-cover");
         if (img) img.src = data.cover_url;
+    }
+
+    // Feed the real downloaded MP3 into the WMP player!
+    if (data.stream_url && currentPlaylistData && typeof wmpUpdateTrackAudio === "function") {
+        const cleanTrack = (data.track || "").trim().toLowerCase();
+        const cleanArtist = (data.artist || "").trim().toLowerCase();
+        let trackIndex = currentPlaylistData.tracks.findIndex(
+            t => (t.title || "").trim().toLowerCase() === cleanTrack &&
+                 (t.artist || "").trim().toLowerCase() === cleanArtist
+        );
+        if (trackIndex === -1) {
+            trackIndex = currentPlaylistData.tracks.findIndex(
+                t => (t.title || "").trim().toLowerCase() === cleanTrack
+            );
+        }
+        if (trackIndex !== -1) {
+            wmpUpdateTrackAudio(trackIndex, data.stream_url);
+        }
     }
 }
 
