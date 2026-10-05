@@ -77,11 +77,12 @@ function renderTrack() {
     }
 
     if (thumb) {
+        const coverSrc = t.cover_url || 'real_cd.png';
         thumb.onerror = function() {
             this.onerror = null;
-            this.src = '/real_cd.png';
+            this.src = 'real_cd.png';
         };
-        thumb.src = t.cover_url || '/real_cd.png';
+        thumb.src = coverSrc;
     }
 
     if (wmpPlaylistTracks.length > 1) {
@@ -152,9 +153,9 @@ function wmpSetTrack(index, autoPlay = true) {
 
 /**
  * Called when a downloaded track becomes available.
- * Updates the playlist entry with the real MP3 stream or blob URL.
+ * Updates the playlist entry with the real MP3 stream or blob URL and high-res cover.
  */
-function wmpUpdateTrackAudio(index, url, autoPlay = true) {
+function wmpUpdateTrackAudio(index, url, autoPlay = true, coverUrl = null) {
     if (state.destroyed) return; // Player bubble was closed/destroyed
 
     if (!wmpPlaylistTracks || !wmpPlaylistTracks[index]) {
@@ -165,19 +166,22 @@ function wmpUpdateTrackAudio(index, url, autoPlay = true) {
     if (!wmpPlaylistTracks || !wmpPlaylistTracks[index]) return;
 
     wmpPlaylistTracks[index].preview_url = url;
+    if (coverUrl) {
+        wmpPlaylistTracks[index].cover_url = coverUrl;
+    }
+
+    // Refresh display immediately if this is the active track
+    if (index === state.trackIndex) {
+        renderTrack();
+    }
 
     // Only auto-play the FIRST song ever in the download session.
-    // NEVER auto-play if:
-    // 1) The user explicitly paused or stopped
-    // 2) Another song is already playing or has started
-    // 3) The player was destroyed
     const isFirstTrackToArrive = !state.hasPlayedFirst && !state.userPaused;
 
     if (isFirstTrackToArrive && autoPlay) {
         state.hasPlayedFirst = true;
         wmpSetTrack(index, true);
     } else {
-        // Just quietly update track metadata & next card. DO NOT interrupt or force playback!
         renderTrack();
     }
 }
